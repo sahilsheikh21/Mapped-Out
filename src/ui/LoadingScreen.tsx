@@ -62,7 +62,7 @@ function findSpawnPosition(
   worldData: WorldData,
   refLat: number,
   refLon: number
-): [number, number, number] {
+): { pos: [number, number, number], rot: number } {
   const candidateRoads = worldData.roads
     .filter((road) => road.geometry && road.geometry.length >= 2 && !NON_DRIVABLE_ROADS.has(road.roadType))
     .sort((a, b) => {
@@ -72,30 +72,38 @@ function findSpawnPosition(
     });
 
   for (const road of candidateRoads) {
-    const samples = [
+    const indices = [
       Math.floor(road.geometry.length * 0.25),
       Math.floor(road.geometry.length * 0.5),
       Math.floor(road.geometry.length * 0.75),
-    ]
-      .map((index) => road.geometry[Math.min(index, road.geometry.length - 1)])
-      .filter(Boolean);
+    ].map(idx => Math.min(idx, road.geometry.length - 2)).filter(idx => idx >= 0);
 
-    for (const sample of samples) {
+    for (const index of indices) {
+      const sample = road.geometry[index];
+      const nextSample = road.geometry[index + 1];
       const point = projectToLocal(sample.lat, sample.lon, refLat, refLon);
+      const nextPoint = projectToLocal(nextSample.lat, nextSample.lon, refLat, refLon);
+      
       if (!isBlockedByBuilding(point, worldData.buildings, refLat, refLon)) {
-        return [point.x, 0.8, point.z];
+        // Calculate angle. ThreeJS -Z is forward. Math.atan2(x, z) gives rotation around Y.
+        const rot = Math.atan2(nextPoint.x - point.x, nextPoint.z - point.z);
+        return { pos: [point.x, 0.8, point.z], rot };
       }
     }
   }
 
   for (const road of worldData.roads) {
-    if (!road.geometry || road.geometry.length === 0) continue;
-    const midpoint = road.geometry[Math.floor(road.geometry.length / 2)];
-    const point = projectToLocal(midpoint.lat, midpoint.lon, refLat, refLon);
-    return [point.x, 0.8, point.z];
+    if (!road.geometry || road.geometry.length < 2) continue;
+    const index = Math.min(Math.floor(road.geometry.length / 2), road.geometry.length - 2);
+    const sample = road.geometry[index];
+    const nextSample = road.geometry[index + 1];
+    const point = projectToLocal(sample.lat, sample.lon, refLat, refLon);
+    const nextPoint = projectToLocal(nextSample.lat, nextSample.lon, refLat, refLon);
+    const rot = Math.atan2(nextPoint.x - point.x, nextPoint.z - point.z);
+    return { pos: [point.x, 0.8, point.z], rot };
   }
 
-  return [0, 0.8, 0];
+  return { pos: [0, 0.8, 0], rot: 0 };
 }
 
 export default function LoadingScreen() {
@@ -141,8 +149,8 @@ export default function LoadingScreen() {
         await new Promise((r) => setTimeout(r, 500));
 
         setLoadingProgress(95, 'Building 3D world...');
-        const spawnPos = findSpawnPosition(worldData, location!.lat, location!.lon);
-        setWorldData(worldData, spawnPos);
+        const spawn = findSpawnPosition(worldData, location!.lat, location!.lon);
+        setWorldData(worldData, spawn.pos, spawn.rot);
 
         await new Promise((r) => setTimeout(r, 300));
 

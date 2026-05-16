@@ -54,10 +54,11 @@ interface WorldState {
   worldData: WorldData | null;
   isLoading: boolean;
   spawnPosition: [number, number, number];
+  spawnRotation: number;
 
   // ─── Actions ────────────────────────────────
   setRefPoint: (lat: number, lon: number) => void;
-  setWorldData: (data: WorldData, spawnPos?: [number, number, number]) => void;
+  setWorldData: (data: WorldData, spawnPos?: [number, number, number], spawnRot?: number) => void;
   setLoading: (loading: boolean) => void;
   clearWorld: () => void;
 }
@@ -68,9 +69,10 @@ export const useWorldStore = create<WorldState>((set) => ({
   worldData: null,
   isLoading: false,
   spawnPosition: [0, 1.5, 0],
+  spawnRotation: 0,
 
   setRefPoint: (lat, lon) => set({ refLat: lat, refLon: lon }),
-  setWorldData: (data, spawnPos = [0, 1.5, 0]) => set({ worldData: data, isLoading: false, spawnPosition: spawnPos }),
+  setWorldData: (data, spawnPos = [0, 1.5, 0], spawnRot = 0) => set({ worldData: data, isLoading: false, spawnPosition: spawnPos, spawnRotation: spawnRot }),
   setLoading: (loading) => set({ isLoading: loading }),
-  clearWorld: () => set({ worldData: null, isLoading: false, spawnPosition: [0, 1.5, 0] }),
+  clearWorld: () => set({ worldData: null, isLoading: false, spawnPosition: [0, 1.5, 0], spawnRotation: 0 }),
 }));

@@ -83,8 +83,14 @@ export default function Vehicle() {
   const setPosition = useVehicleStore(s => s.setPosition);
   const setRotation = useVehicleStore(s => s.setRotation);
   const spawnPosition = useWorldStore(s => s.spawnPosition);
+  const spawnRotation = useWorldStore(s => s.spawnRotation);
   const spawnRef = useRef(spawnPosition);
-  useEffect(() => { spawnRef.current = spawnPosition; }, [spawnPosition]);
+  const spawnRotRef = useRef(spawnRotation);
+  
+  useEffect(() => { 
+    spawnRef.current = spawnPosition; 
+    spawnRotRef.current = spawnRotation;
+  }, [spawnPosition, spawnRotation]);
 
   useEffect(() => {
     const dn = (e: KeyboardEvent) => { keys[e.code] = true; };
@@ -167,10 +173,11 @@ export default function Vehicle() {
     // Reset logic
     const doReset = () => {
       const sp = spawnRef.current;
+      const sr = spawnRotRef.current;
       body.setTranslation({ x: sp[0], y: sp[1] + 0.5, z: sp[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-      const rq = new THREE.Quaternion();
+      const rq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, sr, 0));
       body.setRotation({ x: rq.x, y: rq.y, z: rq.z, w: rq.w }, true);
       steerRef.current = 0;
       airtimeRef.current = 0;
@@ -258,6 +265,7 @@ export default function Vehicle() {
       type="dynamic"
       mass={CAR_MASS}
       position={spawnPosition}
+      rotation={[0, spawnRotation, 0]}
       linearDamping={0.05}
       angularDamping={1.0}
       canSleep={false}
