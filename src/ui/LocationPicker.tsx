@@ -117,7 +117,6 @@ export default function LocationPicker() {
       {/* Hero Header */}
       <div className="lp-header">
         <div className="lp-logo">
-          <span className="lp-logo-icon">🏎️</span>
           <h1>Mapped<span className="accent">Out</span></h1>
         </div>
         <p className="lp-subtitle">Drive anywhere in the world. Pick a location and explore.</p>

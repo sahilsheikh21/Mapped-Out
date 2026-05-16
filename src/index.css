@@ -2,42 +2,43 @@
    MAPPED-OUT — Global Styles & Design System
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ─── CSS Variables ────────────────────────────────────────── */
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-card: #1a1a25;
-  --bg-elevated: #222233;
-  --bg-glass: rgba(18, 18, 26, 0.85);
+  --bg-primary: #000000;
+  --bg-secondary: #080808;
+  --bg-card: #111111;
+  --bg-elevated: #1a1a1a;
+  --bg-glass: rgba(0, 0, 0, 0.85);
 
-  --text-primary: #f0f0f5;
-  --text-secondary: #8888aa;
-  --text-muted: #55556a;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
 
-  --accent: #6c5ce7;
-  --accent-bright: #a29bfe;
-  --accent-glow: rgba(108, 92, 231, 0.3);
+  --accent: #ffffff;
+  --accent-bright: #e0e0e0;
+  --accent-glow: rgba(255, 255, 255, 0.15);
 
   --success: #00d68f;
   --warning: #ffaa00;
   --danger: #ff5566;
 
-  --border: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(255, 255, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.2);
 
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.8);
   --shadow-glow: 0 0 30px var(--accent-glow);
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -96,14 +97,15 @@ html, body, #root {
 }
 
 .lp-logo h1 {
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.05em;
   color: var(--text-primary);
 }
 
 .lp-logo .accent {
-  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  background: var(--text-secondary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -290,10 +292,10 @@ html, body, #root {
   align-items: center;
   gap: 0.5rem;
   padding: 0.8rem 2rem;
-  background: linear-gradient(135deg, var(--accent), #5a4bd1);
+  background: var(--text-primary);
   border: none;
   border-radius: var(--radius-md);
-  color: white;
+  color: var(--bg-primary);
   font-size: 1rem;
   font-weight: 600;
   font-family: var(--font-sans);
@@ -326,8 +328,8 @@ html, body, #root {
   justify-content: center;
   background: var(--bg-primary);
   background-image:
-    radial-gradient(circle at 30% 40%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 70% 60%, rgba(162, 155, 254, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 30% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
 }
 
 .loading-content {
