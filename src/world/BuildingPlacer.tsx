@@ -69,7 +69,7 @@ function useBuildingInstances(): BuildingInstance[] {
 
       instances.push({
         position: [x, 0, z],
-        scale: [scale[0] * ASSET_SCALE, scale[1] * ASSET_SCALE, scale[2] * ASSET_SCALE],
+        scale: [scale[0], scale[1], scale[2]],
         rotation,
         modelPath: asset.modelPath,
         key: `bld-${building.id}`,
