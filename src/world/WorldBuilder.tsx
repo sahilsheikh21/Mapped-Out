@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import BuildingPlacer from './BuildingPlacer';
 import RoadGenerator from './RoadGenerator';
 import PropPlacer from './PropPlacer';
+import StationPlacer from './StationPlacer';
 import GroundPlane from './GroundPlane';
 
 export default function WorldBuilder() {
@@ -18,6 +19,7 @@ export default function WorldBuilder() {
       <BuildingPlacer />
       <Suspense fallback={null}>
         <PropPlacer />
+        <StationPlacer />
       </Suspense>
     </group>
   );

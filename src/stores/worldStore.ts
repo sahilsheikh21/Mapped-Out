@@ -42,6 +42,7 @@ export interface WorldData {
   roads: OSMRoad[];
   trees: OSMTree[];
   amenities: OSMAmenity[];
+  transitStations: OSMAmenity[];
   bbox: [number, number, number, number]; // [south, west, north, east]
 }
 

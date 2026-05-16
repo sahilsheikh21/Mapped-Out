@@ -45,6 +45,12 @@ export async function fetchOSMData(
       node["natural"="tree"](${bbox});
       way["amenity"](${bbox});
       node["amenity"](${bbox});
+      way["railway"="station"](${bbox});
+      node["railway"="station"](${bbox});
+      way["public_transport"="station"](${bbox});
+      node["public_transport"="station"](${bbox});
+      node["highway"="bus_stop"](${bbox});
+      way["amenity"="bus_station"](${bbox});
       way["landuse"](${bbox});
       way["leisure"](${bbox});
     );

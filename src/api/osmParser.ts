@@ -155,6 +155,7 @@ export function parseOSMResponse(
   const roads: OSMRoad[] = [];
   const trees: OSMTree[] = [];
   const amenities: OSMAmenity[] = [];
+  const transitStations: OSMAmenity[] = [];
 
   for (const element of response.elements) {
     const tags = element.tags || {};
@@ -186,6 +187,22 @@ export function parseOSMResponse(
         widthMeters,
       });
     }
+    // ── Transit Stations ─────────────────────
+    else if (
+      (tags.railway === 'station' || 
+       tags.public_transport === 'station' || 
+       tags.highway === 'bus_stop' || 
+       tags.amenity === 'bus_station' || 
+       tags.amenity === 'subway_entrance')
+    ) {
+      transitStations.push({
+        id: element.id,
+        tags,
+        lat: element.lat,
+        lon: element.lon,
+        geometry: element.geometry,
+      });
+    }
     // ── Trees ────────────────────────────────
     else if (tags.natural === 'tree' && element.lat != null && element.lon != null) {
       trees.push({
@@ -207,5 +224,5 @@ export function parseOSMResponse(
     }
   }
 
-  return { buildings, roads, trees, amenities, bbox };
+  return { buildings, roads, trees, amenities, transitStations, bbox };
 }
