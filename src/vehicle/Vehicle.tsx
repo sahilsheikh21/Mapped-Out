@@ -65,6 +65,9 @@ export default function Vehicle() {
   const steerRef = useRef(0);
   const airtimeRef = useRef(0);
   const resetTimeRef = useRef(-999);
+  
+  // Visual wheel refs
+  const wheelsRef = useRef<(THREE.Object3D | null)[]>([null, null, null, null]);
 
   const fbx = useLoader(FBXLoader, MODEL_PATH);
   const carModel = useMemo(() => fbx.clone(true), [fbx]);
@@ -73,6 +76,14 @@ export default function Vehicle() {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        
+        const name = child.name.toLowerCase();
+        if (name.includes('wheel') || name.includes('tire')) {
+          if (name.includes('fl')) wheelsRef.current[0] = child;
+          if (name.includes('fr')) wheelsRef.current[1] = child;
+          if (name.includes('rl')) wheelsRef.current[2] = child;
+          if (name.includes('rr')) wheelsRef.current[3] = child;
+        }
       }
     });
   }, [carModel]);
@@ -257,6 +268,24 @@ export default function Vehicle() {
       steering: ((keys['KeyD'] || keys['ArrowRight']) ? 1 : 0) - ((keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0),
       handbrake: !!keys['Space'],
     });
+
+    // Update wheel visual rotation
+    const steerAngle = steerRef.current * CAR_MAX_STEER_RAD;
+    // Front wheels steer (indices 0 and 1)
+    if (wheelsRef.current[0]) wheelsRef.current[0].rotation.y = steerAngle;
+    if (wheelsRef.current[1]) wheelsRef.current[1].rotation.y = steerAngle;
+    
+    // Rolling animation
+    const rollSpeed = Math.hypot(lv.x, lv.z) * 0.25;
+    wheelsRef.current.forEach((wheel) => {
+      if (wheel) {
+        wheel.rotation.x += lv.z > 0 ? rollSpeed : -rollSpeed;
+      }
+    });
+
+    // Body roll (tilting the car when turning)
+    const bodyRoll = steerRef.current * speed01 * 0.12;
+    carModel.rotation.z = bodyRoll;
   });
 
   return (
