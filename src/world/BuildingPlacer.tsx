@@ -15,7 +15,7 @@ import {
   getWindowGlowIntensity,
   type BuildingFootprintMetrics,
 } from './buildingTheme';
-import { Text } from '@react-three/drei';
+import { Text, Billboard } from '@react-three/drei';
 
 interface BuildingInstance {
   position: [number, number, number];
@@ -254,18 +254,20 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
           </mesh>
         ))}
         {instance.name && (
-          <Text
-            position={[0, instance.totalHeight + 4, 0]}
-            fontSize={4}
-            color="#ffffff"
-            outlineWidth={0.4}
-            outlineColor="#000000"
-            anchorX="center"
-            anchorY="middle"
-            characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
-          >
-            {instance.name}
-          </Text>
+          <Billboard position={[0, instance.totalHeight + 8, 0]}>
+            <Text
+              fontSize={6}
+              color="#ffffff"
+              outlineWidth={0.6}
+              outlineColor="#000000"
+              anchorX="center"
+              anchorY="middle"
+              depthTest={false}
+              characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
+            >
+              {instance.name}
+            </Text>
+          </Billboard>
         )}
       </group>
     </RigidBody>
