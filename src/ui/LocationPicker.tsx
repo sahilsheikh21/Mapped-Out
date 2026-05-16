@@ -51,7 +51,7 @@ export default function LocationPicker() {
   const [selectedPos, setSelectedPos] = useState<{ lat: number; lon: number } | null>(null);
   const [locationName, setLocationName] = useState('');
   const [isLocating, setIsLocating] = useState(false);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = useCallback(async (query: string) => {
     if (query.length < 3) {
