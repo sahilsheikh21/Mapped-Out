@@ -32,6 +32,10 @@ import { clamp, lerp } from '../utils/math';
 const keys: Record<string, boolean> = {};
 const PLAYER_CAR_MODEL_PATH = '/assets/vehicles/realistic-sports-car.fbx';
 const PLAYER_CAR_MODEL_SCALE = 0.0108;
+const PLAYER_CAR_MODEL_OFFSET: [number, number, number] = [0, 0.02, 0];
+const PLAYER_CAR_MODEL_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0];
+const PLAYER_CAR_COLLIDER_ARGS: [number, number, number] = [1.0, 0.45, 2.15];
+const PLAYER_CAR_COLLIDER_OFFSET: [number, number, number] = [0, 0.45, 0];
 
 export default function Vehicle() {
   const bodyRef = useRef<RapierRigidBody>(null);
@@ -228,13 +232,13 @@ export default function Vehicle() {
       enabledRotations={[false, true, false]}
       colliders={false}
     >
-      <CuboidCollider args={[1.2, 0.4, 2.2]} position={[0, 0.4, 0]} friction={0} />
+      <CuboidCollider args={PLAYER_CAR_COLLIDER_ARGS} position={PLAYER_CAR_COLLIDER_OFFSET} friction={0} />
       <group ref={meshRef}>
         <primitive
           object={carModel}
           scale={[PLAYER_CAR_MODEL_SCALE, PLAYER_CAR_MODEL_SCALE, PLAYER_CAR_MODEL_SCALE]}
-          position={[0, 0, 0]}
-          rotation={[0, Math.PI, 0]}
+          position={PLAYER_CAR_MODEL_OFFSET}
+          rotation={PLAYER_CAR_MODEL_ROTATION}
         />
       </group>
     </RigidBody>
