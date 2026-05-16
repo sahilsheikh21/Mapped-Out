@@ -129,17 +129,17 @@ export default function Vehicle() {
       }, true);
     }
 
-    // Lateral friction (cancel out sideways sliding)
+    // Lateral friction (cancel out sideways sliding tightly)
     const lateralSpeed = rightDir.x * currentVel.x + rightDir.z * currentVel.z;
-    if (Math.abs(lateralSpeed) > 0.1) {
-      // The exact impulse required to completely stop lateral movement is: mass * lateralSpeed
+    if (Math.abs(lateralSpeed) > 0.01) {
+      // The exact impulse required to completely stop lateral movement
       const mass = body.mass();
       const requiredImpulse = mass * lateralSpeed;
       
-      // We only apply a fraction of it per frame to simulate grip loss, capped at the required impulse
-      // Sign matches the required impulse, magnitude is capped so it never over-corrects
-      const maxFriction = 400.0 * dt;
-      const frictionMagnitude = Math.min(Math.abs(requiredImpulse), maxFriction * Math.abs(lateralSpeed));
+      // Apply enough friction to eliminate sliding almost instantly (arcade physics)
+      // Cap it to the exact required impulse to avoid jitter/oscillations
+      const gripFactor = 10000.0 * dt; 
+      const frictionMagnitude = Math.min(Math.abs(requiredImpulse), gripFactor * Math.abs(lateralSpeed));
       const frictionImpulse = Math.sign(requiredImpulse) * frictionMagnitude;
       
       body.applyImpulse({
