@@ -8,7 +8,8 @@ import { useGLTF } from '@react-three/drei';
 import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
-import { selectBuildingAsset, computeBuildingScale, ASSET_SCALE } from './assetMapper';
+import { selectBuildingAsset, computeBuildingScale } from './assetMapper';
+import { ASSET_SCALE } from '../utils/constants';
 import { projectToLocal, polygonCentroid, polygonDimensions, polygonRotation } from '../utils/geo';
 
 interface BuildingInstance {
