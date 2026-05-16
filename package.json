@@ -1,0 +1,29 @@
+{
+  "name": "mapped-out-temp",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/rapier": "^2.2.0",
+    "@types/leaflet": "^1.9.21",
+    "@types/three": "^0.184.1",
+    "idb": "^8.0.3",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.16.0",
+    "react-leaflet": "^5.0.0",
+    "three": "^0.184.0",
+    "zustand": "^5.0.13"
+  }
+}
