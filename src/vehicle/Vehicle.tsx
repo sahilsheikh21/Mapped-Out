@@ -4,11 +4,11 @@
  */
 
 import { useRef, useEffect, useMemo, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useFrame, useLoader } from '@react-three/fiber';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useWorldStore } from '../stores/worldStore';
 import {
@@ -30,14 +30,14 @@ import { clamp, lerp } from '../utils/math';
 
 // Keyboard input tracking
 const keys: Record<string, boolean> = {};
-const PLAYER_CAR_MODEL_PATH = '/assets/vehicles/1969-ford-mustang.glb';
-const PLAYER_CAR_MODEL_SCALE = 92;
+const PLAYER_CAR_MODEL_PATH = '/assets/vehicles/realistic-sports-car.fbx';
+const PLAYER_CAR_MODEL_SCALE = 0.0108;
 
 export default function Vehicle() {
   const bodyRef = useRef<RapierRigidBody>(null);
   const meshRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF(PLAYER_CAR_MODEL_PATH);
-  const carModel = useMemo(() => scene.clone(true), [scene]);
+  const fbx = useLoader(FBXLoader, PLAYER_CAR_MODEL_PATH);
+  const carModel = useMemo(() => fbx.clone(true), [fbx]);
 
   const setSpeed = useVehicleStore((s) => s.setSpeed);
   const setSteerAngle = useVehicleStore((s) => s.setSteerAngle);
@@ -240,5 +240,3 @@ export default function Vehicle() {
     </RigidBody>
   );
 }
-
-useGLTF.preload(PLAYER_CAR_MODEL_PATH);
