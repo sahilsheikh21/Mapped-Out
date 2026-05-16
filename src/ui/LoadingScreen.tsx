@@ -208,10 +208,7 @@ export default function LoadingScreen() {
         </div>
         
         <div className="w-full max-w-lg absolute bottom-24 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-          <div className="mb-4 text-gray-300 text-sm tracking-[0.3em] uppercase font-medium text-center">
-            {loadingMessage || 'Loading...'}
-          </div>
-          <div className="w-full flex items-center gap-4">
+          <div className="w-full flex items-center gap-4 mb-4">
             <div className="flex-grow h-[4px] bg-[#222] rounded-full overflow-hidden relative">
               <div 
                 className="absolute top-0 left-0 h-full bg-[#e33535] loading-fill-animated rounded-full transition-all duration-300"
@@ -221,6 +218,10 @@ export default function LoadingScreen() {
             <div className="text-[#e33535] font-semibold text-sm w-12 text-right text-glow-red">
               {Math.round(loadingProgress)}%
             </div>
+          </div>
+
+          <div className="text-gray-300 text-sm tracking-[0.3em] uppercase font-medium text-center h-4">
+            {loadingMessage || 'Loading...'}
           </div>
           
           <div className="mt-8 text-gray-500 text-xs tracking-widest uppercase">
