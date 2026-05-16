@@ -16,6 +16,7 @@ interface GameState {
 
   // ─── Camera ─────────────────────────────────
   cameraMode: CameraMode;
+  freeCam: boolean;
   
   // ─── Time of Day ────────────────────────────
   timeOfDay: TimeOfDay;
@@ -25,6 +26,7 @@ interface GameState {
   setPhase: (phase: GamePhase) => void;
   setLoadingProgress: (progress: number, message?: string) => void;
   cycleCameraMode: () => void;
+  toggleFreeCam: () => void;
   cycleTimeOfDay: () => void;
   resetToLocationPicker: () => void;
 }
@@ -36,6 +38,7 @@ export const useGameStore = create<GameState>((set) => ({
   loadingProgress: 0,
   loadingMessage: 'Initializing...',
   cameraMode: 'chase',
+  freeCam: false,
   timeOfDay: 'day',
 
   setLocation: (lat, lon, name = '') =>
@@ -56,6 +59,8 @@ export const useGameStore = create<GameState>((set) => ({
       return { cameraMode: modes[(idx + 1) % modes.length] };
     }),
 
+  toggleFreeCam: () => set((state) => ({ freeCam: !state.freeCam })),
+
   cycleTimeOfDay: () =>
     set((state) => {
       const times: TimeOfDay[] = ['day', 'sunset', 'night'];
@@ -70,5 +75,6 @@ export const useGameStore = create<GameState>((set) => ({
       locationName: '',
       loadingProgress: 0,
       loadingMessage: 'Initializing...',
+      freeCam: false,
     }),
 }));

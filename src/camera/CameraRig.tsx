@@ -9,7 +9,7 @@
 
 import { useRef, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useGameStore } from '../stores/gameStore';
@@ -34,6 +34,7 @@ const ORBIT_HEIGHT_BASE = CHASE_CAM_HEIGHT;
 
 export default function CameraRig() {
   const cameraMode = useGameStore((s) => s.cameraMode);
+  const freeCam = useGameStore((s) => s.freeCam);
   const { gl } = useThree();
   const idealPos = useRef(new THREE.Vector3(0, CHASE_CAM_HEIGHT, CHASE_CAM_DISTANCE));
   const idealTarget = useRef(new THREE.Vector3(0, 0, 0));
@@ -153,18 +154,32 @@ export default function CameraRig() {
       camera.position.copy(idealPos.current);
       camera.lookAt(idealTarget.current);
 
-    } else if (cameraMode === 'birdsEye') {
+    } else if (cameraMode === 'birdsEye' && !freeCam) {
       // Bird's eye: directly above
       const targetPos = new THREE.Vector3(carPos.x, carPos.y + 80, carPos.z + 10);
       idealPos.current.lerp(targetPos, 0.05);
       camera.position.copy(idealPos.current);
       camera.lookAt(carPos);
     }
-    // orbit mode uses OrbitControls below
+    // orbit and freeCam modes use controls below
   });
 
+  const position = useVehicleStore.getState().position;
+
+  if (cameraMode === 'birdsEye' && freeCam) {
+    return (
+      <MapControls
+        target={[position[0], 0, position[2]]}
+        minDistance={10}
+        maxDistance={200}
+        maxPolarAngle={Math.PI / 2.5}
+        enableDamping
+        dampingFactor={0.05}
+      />
+    );
+  }
+
   if (cameraMode === 'orbit') {
-    const position = useVehicleStore.getState().position;
     return (
       <OrbitControls
         target={position}

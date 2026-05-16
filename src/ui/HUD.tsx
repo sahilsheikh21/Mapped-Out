@@ -11,10 +11,12 @@ import { MapPin, Camera, Sun, ArrowLeft, Mouse } from 'lucide-react';
 export default function HUD() {
   const speed = useVehicleStore((s) => s.speed);
   const cameraMode = useGameStore((s) => s.cameraMode);
+  const freeCam = useGameStore((s) => s.freeCam);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const locationName = useGameStore((s) => s.locationName);
   const cycleCameraMode = useGameStore((s) => s.cycleCameraMode);
   const cycleTimeOfDay = useGameStore((s) => s.cycleTimeOfDay);
+  const toggleFreeCam = useGameStore((s) => s.toggleFreeCam);
   const resetToLocationPicker = useGameStore((s) => s.resetToLocationPicker);
 
   const [pointerLocked, setPointerLocked] = useState(false);
@@ -24,6 +26,11 @@ export default function HUD() {
     const handler = (e: KeyboardEvent) => {
       if (e.code === 'KeyC') cycleCameraMode();
       if (e.code === 'KeyT') cycleTimeOfDay();
+      if (e.code === 'KeyF') {
+        if (useGameStore.getState().cameraMode === 'birdsEye') {
+          toggleFreeCam();
+        }
+      }
       // Only go back if pointer is NOT locked (Esc first releases lock, then goes back)
       if (e.code === 'Escape' && !document.pointerLockElement) {
         resetToLocationPicker();
@@ -31,7 +38,7 @@ export default function HUD() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [cycleCameraMode, cycleTimeOfDay, resetToLocationPicker]);
+  }, [cycleCameraMode, cycleTimeOfDay, toggleFreeCam, resetToLocationPicker]);
 
   // Track pointer lock state for HUD hints
   useEffect(() => {
@@ -63,6 +70,12 @@ export default function HUD() {
             <Camera size={14} />
             <span>{cameraMode}</span>
           </button>
+          {cameraMode === 'birdsEye' && (
+            <button className={`hud-btn ${freeCam ? 'active' : ''}`} onClick={toggleFreeCam} title="Toggle Free Cam (F)" style={{ color: freeCam ? 'var(--success)' : undefined }}>
+              <Mouse size={14} />
+              <span>{freeCam ? 'Free Cam' : 'Follow Car'}</span>
+            </button>
+          )}
           <button className="hud-btn" onClick={cycleTimeOfDay} title="Time of day (T)">
             <Sun size={14} />
             <span>{timeOfDay}</span>
@@ -91,7 +104,8 @@ export default function HUD() {
         <span>Mouse</span> Look &nbsp;•&nbsp;
         <span>R</span> Reset &nbsp;•&nbsp;
         <span>C</span> Camera &nbsp;•&nbsp;
-        <span>T</span> Time
+        <span>T</span> Time &nbsp;•&nbsp;
+        <span>F</span> FreeCam (Bird)
       </div>
     </div>
   );
