@@ -135,7 +135,8 @@ function useBuildingInstances(): BuildingInstance[] {
 
       const footprint = computeFootprintMetrics(projectedPoints);
 
-      if (footprint.width < 2 || footprint.depth < 2 || footprint.area < 8) continue;
+      // No longer filtering out small buildings to avoid invisible walls
+      if (footprint.area < 1) continue;
 
       const totalHeight = Math.max(3, building.heightMeters);
       const centroid = computePolygonCentroid(projectedPoints);
@@ -154,9 +155,9 @@ function useBuildingInstances(): BuildingInstance[] {
         shapePoints,
         wallHeight,
         colliderSize: [
-          Math.max(footprint.width / 2, 1.5),
-          Math.max(totalHeight / 2, 1.5),
-          Math.max(footprint.depth / 2, 1.5),
+          footprint.width / 2,
+          totalHeight / 2,
+          footprint.depth / 2,
         ],
         colliderOffset: [0, totalHeight / 2, 0],
         style,
@@ -223,6 +224,8 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             color={instance.style.roofColor}
             roughness={instance.style.roofRoughness}
             metalness={instance.style.roofMetalness}
+            transparent
+            opacity={0.9}
           />
           <meshStandardMaterial
             attach="material-1"
@@ -233,6 +236,8 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             emissiveIntensity={windowGlowIntensity}
             roughness={instance.style.wallRoughness}
             metalness={instance.style.wallMetalness}
+            transparent
+            opacity={0.85}
           />
         </mesh>
         <mesh geometry={roofGeometry} castShadow receiveShadow>
@@ -240,6 +245,8 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             color={instance.style.roofColor}
             roughness={instance.style.roofRoughness}
             metalness={instance.style.roofMetalness}
+            transparent
+            opacity={0.9}
           />
         </mesh>
         {instance.style.rooftopDetails.map((detail, index) => (
