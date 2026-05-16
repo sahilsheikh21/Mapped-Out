@@ -12,7 +12,6 @@ import * as THREE from 'three';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useWorldStore } from '../stores/worldStore';
 import {
-  ASSET_SCALE,
   CAR_ACCELERATION,
   CAR_BRAKE_FORCE,
   CAR_DRAG,
@@ -31,11 +30,13 @@ import { clamp, lerp } from '../utils/math';
 
 // Keyboard input tracking
 const keys: Record<string, boolean> = {};
+const PLAYER_CAR_MODEL_PATH = '/assets/vehicles/1969-ford-mustang.glb';
+const PLAYER_CAR_MODEL_SCALE = 92;
 
 export default function Vehicle() {
   const bodyRef = useRef<RapierRigidBody>(null);
   const meshRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF('/assets/kenney-vehicles/sedan-sports.glb');
+  const { scene } = useGLTF(PLAYER_CAR_MODEL_PATH);
   const carModel = useMemo(() => scene.clone(true), [scene]);
 
   const setSpeed = useVehicleStore((s) => s.setSpeed);
@@ -215,8 +216,6 @@ export default function Vehicle() {
     setRotation([rot.x, rot.y, rot.z, rot.w]);
   });
 
-  const carScale = ASSET_SCALE * 0.9;
-
   return (
     <RigidBody
       ref={bodyRef}
@@ -233,7 +232,7 @@ export default function Vehicle() {
       <group ref={meshRef}>
         <primitive
           object={carModel}
-          scale={[carScale, carScale, carScale]}
+          scale={[PLAYER_CAR_MODEL_SCALE, PLAYER_CAR_MODEL_SCALE, PLAYER_CAR_MODEL_SCALE]}
           position={[0, 0, 0]}
           rotation={[0, Math.PI, 0]}
         />
@@ -241,3 +240,5 @@ export default function Vehicle() {
     </RigidBody>
   );
 }
+
+useGLTF.preload(PLAYER_CAR_MODEL_PATH);
