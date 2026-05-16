@@ -72,6 +72,9 @@ export default function Vehicle() {
       return;
     }
 
+    // Clamp delta to avoid massive impulses after lag spikes (max 0.05s)
+    const dt = Math.min(delta, 0.05);
+
     const linvel = body.linvel();
     const currentVel = new THREE.Vector3(linvel.x, linvel.y, linvel.z);
     const speed = Math.sqrt(currentVel.x ** 2 + currentVel.z ** 2);
@@ -88,26 +91,26 @@ export default function Vehicle() {
 
     if (forward && speed < maxSpeed) {
       body.applyImpulse({
-        x: forwardDir.x * engineForce * delta,
+        x: forwardDir.x * engineForce * dt,
         y: 0,
-        z: forwardDir.z * engineForce * delta,
+        z: forwardDir.z * engineForce * dt,
       }, true);
     }
 
     if (backward) {
       body.applyImpulse({
-        x: -forwardDir.x * engineForce * 0.5 * delta,
+        x: -forwardDir.x * engineForce * 0.5 * dt,
         y: 0,
-        z: -forwardDir.z * engineForce * 0.5 * delta,
+        z: -forwardDir.z * engineForce * 0.5 * dt,
       }, true);
     }
 
     if (brake) {
       // Apply an impulse opposite to current velocity to brake
       body.applyImpulse({
-        x: -currentVel.x * 20 * delta,
+        x: -currentVel.x * 20 * dt,
         y: 0,
-        z: -currentVel.z * 20 * delta,
+        z: -currentVel.z * 20 * dt,
       }, true);
     }
 
@@ -121,7 +124,7 @@ export default function Vehicle() {
       const steerTorque = newSteer * 150 * Math.min(speed / 5, 1);
       body.applyTorqueImpulse({
         x: 0,
-        y: -steerTorque * delta,
+        y: -steerTorque * dt,
         z: 0,
       }, true);
     }
@@ -129,11 +132,20 @@ export default function Vehicle() {
     // Lateral friction (cancel out sideways sliding)
     const lateralSpeed = rightDir.x * currentVel.x + rightDir.z * currentVel.z;
     if (Math.abs(lateralSpeed) > 0.1) {
-      const lateralFrictionForce = 400.0;
+      // The exact impulse required to completely stop lateral movement is: mass * lateralSpeed
+      const mass = body.mass();
+      const requiredImpulse = mass * lateralSpeed;
+      
+      // We only apply a fraction of it per frame to simulate grip loss, capped at the required impulse
+      // Sign matches the required impulse, magnitude is capped so it never over-corrects
+      const maxFriction = 400.0 * dt;
+      const frictionMagnitude = Math.min(Math.abs(requiredImpulse), maxFriction * Math.abs(lateralSpeed));
+      const frictionImpulse = Math.sign(requiredImpulse) * frictionMagnitude;
+      
       body.applyImpulse({
-        x: -rightDir.x * lateralSpeed * lateralFrictionForce * delta,
+        x: -rightDir.x * frictionImpulse,
         y: 0,
-        z: -rightDir.z * lateralSpeed * lateralFrictionForce * delta,
+        z: -rightDir.z * frictionImpulse,
       }, true);
     }
 
