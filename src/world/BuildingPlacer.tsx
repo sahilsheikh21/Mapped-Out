@@ -214,10 +214,10 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
     <RigidBody
       type="fixed"
       position={instance.position}
-      colliders={false}
+      colliders="trimesh"
     >
       <group>
-        <CuboidCollider args={instance.colliderSize} position={instance.colliderOffset} />
+        {/* Accurate trimesh collider automatically generated from children meshes */}
         <mesh geometry={bodyGeometry} castShadow receiveShadow>
           <meshStandardMaterial
             attach="material-0"

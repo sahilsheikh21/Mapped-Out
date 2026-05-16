@@ -18,6 +18,7 @@ export default function HUD() {
   const cycleTimeOfDay = useGameStore((s) => s.cycleTimeOfDay);
   const toggleFreeCam = useGameStore((s) => s.toggleFreeCam);
   const resetToLocationPicker = useGameStore((s) => s.resetToLocationPicker);
+  const resetVehicle = useVehicleStore((s) => s.resetVehicle);
 
   const [pointerLocked, setPointerLocked] = useState(false);
 
@@ -30,6 +31,9 @@ export default function HUD() {
         if (useGameStore.getState().cameraMode === 'birdsEye') {
           toggleFreeCam();
         }
+      }
+      if (e.code === 'KeyR') {
+        resetVehicle();
       }
       // Only go back if pointer is NOT locked (Esc first releases lock, then goes back)
       if (e.code === 'Escape' && !document.pointerLockElement) {
