@@ -74,41 +74,47 @@ export default function Vehicle() {
 
     // Current velocity
     const linvel = body.linvel();
-    const speed = Math.sqrt(linvel.x ** 2 + linvel.z ** 2);
+    const currentVel = new THREE.Vector3(linvel.x, linvel.y, linvel.z);
+    const speed = Math.sqrt(currentVel.x ** 2 + currentVel.z ** 2);
 
     // Get car's forward direction from rotation
     const rotation = body.rotation();
     const quat = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
     const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
+    const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
 
-    // Throttle / Brake forces
-    const throttleForce = 150;
-    const brakeForce = 80;
+    // Throttle / Brake forces (converted to velocity changes per frame)
+    const acceleration = 25.0; // m/s^2
     const maxSpeed = CAR_MAX_SPEED;
 
     if (forward && speed < maxSpeed) {
-      body.applyImpulse({
-        x: forwardDir.x * throttleForce * delta,
-        y: 0,
-        z: forwardDir.z * throttleForce * delta,
-      }, true);
+      currentVel.add(forwardDir.clone().multiplyScalar(acceleration * delta));
     }
 
     if (backward) {
-      body.applyImpulse({
-        x: -forwardDir.x * throttleForce * 0.5 * delta,
-        y: 0,
-        z: -forwardDir.z * throttleForce * 0.5 * delta,
-      }, true);
+      currentVel.add(forwardDir.clone().multiplyScalar(-acceleration * 0.5 * delta));
     }
 
     if (brake) {
-      body.setLinvel({
-        x: linvel.x * 0.95,
-        y: linvel.y,
-        z: linvel.z * 0.95,
-      }, true);
+      currentVel.x *= 0.95;
+      currentVel.z *= 0.95;
     }
+
+    // Lateral friction (prevent sliding)
+    const lateralSpeed = rightDir.x * currentVel.x + rightDir.z * currentVel.z;
+    const frictionForce = 0.92; // How much lateral speed is kept (0.92 = 8% lost per frame)
+
+    currentVel.x -= rightDir.x * lateralSpeed * (1 - frictionForce);
+    currentVel.z -= rightDir.z * lateralSpeed * (1 - frictionForce);
+
+    // Natural drag
+    if (!forward && !backward) {
+      currentVel.x *= 0.98;
+      currentVel.z *= 0.98;
+    }
+
+    // Apply the final computed velocity
+    body.setLinvel({ x: currentVel.x, y: currentVel.y, z: currentVel.z }, true);
 
     // Steering (apply torque for rotation)
     const steerInput = right - left;
@@ -122,26 +128,6 @@ export default function Vehicle() {
         x: 0,
         y: -steerTorque * delta,
         z: 0,
-      }, true);
-    }
-
-    // Lateral friction (prevent sliding)
-    const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
-    const lateralSpeed = rightDir.x * linvel.x + rightDir.z * linvel.z;
-    const frictionForce = 0.92;
-
-    body.setLinvel({
-      x: linvel.x - rightDir.x * lateralSpeed * (1 - frictionForce),
-      y: linvel.y,
-      z: linvel.z - rightDir.z * lateralSpeed * (1 - frictionForce),
-    }, true);
-
-    // Natural drag
-    if (!forward && !backward) {
-      body.setLinvel({
-        x: linvel.x * 0.995,
-        y: linvel.y,
-        z: linvel.z * 0.995,
       }, true);
     }
 
