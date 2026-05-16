@@ -17,6 +17,7 @@ import {
   CAR_BRAKE_FORCE,
   CAR_DRAG,
   CAR_LATERAL_GRIP,
+  CAR_MASS,
   CAR_MAX_SPEED,
   CAR_MAX_YAW_RATE,
   CAR_REVERSE_SPEED,
@@ -150,8 +151,12 @@ export default function Vehicle() {
     }
 
     // Natural slowing so the car does not coast forever.
+    // Rolling resistance is mostly constant, while aero drag rises with speed^2.
     if (speed > 0.01) {
-      const dragImpulse = currentVel.clone().multiplyScalar(-(CAR_ROLLING_RESISTANCE + speed * CAR_DRAG) * mass * dt);
+      const dragDirection = currentVel.clone().normalize();
+      const rollingImpulse = dragDirection.clone().multiplyScalar(-CAR_ROLLING_RESISTANCE * mass * dt);
+      const aeroImpulse = currentVel.clone().multiplyScalar(-speed * CAR_DRAG * mass * dt);
+      const dragImpulse = rollingImpulse.add(aeroImpulse);
       body.applyImpulse({
         x: dragImpulse.x,
         y: 0,
@@ -203,7 +208,9 @@ export default function Vehicle() {
     // Update store
     const pos = body.translation();
     const rot = body.rotation();
-    setSpeed(Math.abs(forwardSpeed));
+    const finalVel = body.linvel();
+    const finalHorizontalSpeed = Math.hypot(finalVel.x, finalVel.z);
+    setSpeed(finalHorizontalSpeed);
     setPosition([pos.x, pos.y, pos.z]);
     setRotation([rot.x, rot.y, rot.z, rot.w]);
   });
@@ -214,7 +221,7 @@ export default function Vehicle() {
     <RigidBody
       ref={bodyRef}
       type="dynamic"
-      mass={15}
+      mass={CAR_MASS}
       position={spawnPosition}
       linearDamping={0.3}
       angularDamping={0.8}
