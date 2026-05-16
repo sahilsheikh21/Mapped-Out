@@ -9,6 +9,94 @@ import { useWorldStore } from '../stores/worldStore';
 import { fetchOSMData } from '../api/overpass';
 import { parseOSMResponse } from '../api/osmParser';
 import { getBBox, projectToLocal } from '../utils/geo';
+import type { OSMBuilding, OSMRoad, WorldData } from '../stores/worldStore';
+
+const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
+
+function pointInPolygon(
+  point: { x: number; z: number },
+  polygon: { x: number; z: number }[]
+): boolean {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const zi = polygon[i].z;
+    const xj = polygon[j].x;
+    const zj = polygon[j].z;
+
+    const intersects = ((zi > point.z) !== (zj > point.z))
+      && (point.x < ((xj - xi) * (point.z - zi)) / ((zj - zi) || 1e-6) + xi);
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function isBlockedByBuilding(
+  point: { x: number; z: number },
+  buildings: OSMBuilding[],
+  refLat: number,
+  refLon: number
+): boolean {
+  for (const building of buildings) {
+    if (!building.geometry || building.geometry.length < 3) continue;
+
+    const projected = building.geometry.map((vertex) => projectToLocal(vertex.lat, vertex.lon, refLat, refLon));
+    if (pointInPolygon(point, projected)) return true;
+  }
+
+  return false;
+}
+
+function roadPriority(road: OSMRoad): number {
+  if (road.roadType === 'motorway' || road.roadType === 'trunk') return 0;
+  if (road.roadType === 'primary' || road.roadType === 'secondary') return 1;
+  if (road.roadType === 'tertiary') return 2;
+  if (road.roadType === 'residential' || road.roadType === 'living_street' || road.roadType === 'service') return 3;
+  return 4;
+}
+
+function findSpawnPosition(
+  worldData: WorldData,
+  refLat: number,
+  refLon: number
+): [number, number, number] {
+  const candidateRoads = worldData.roads
+    .filter((road) => road.geometry && road.geometry.length >= 2 && !NON_DRIVABLE_ROADS.has(road.roadType))
+    .sort((a, b) => {
+      const priorityDelta = roadPriority(a) - roadPriority(b);
+      if (priorityDelta !== 0) return priorityDelta;
+      return b.widthMeters - a.widthMeters;
+    });
+
+  for (const road of candidateRoads) {
+    const samples = [
+      Math.floor(road.geometry.length * 0.25),
+      Math.floor(road.geometry.length * 0.5),
+      Math.floor(road.geometry.length * 0.75),
+    ]
+      .map((index) => road.geometry[Math.min(index, road.geometry.length - 1)])
+      .filter(Boolean);
+
+    for (const sample of samples) {
+      const point = projectToLocal(sample.lat, sample.lon, refLat, refLon);
+      if (!isBlockedByBuilding(point, worldData.buildings, refLat, refLon)) {
+        return [point.x, 2.2, point.z];
+      }
+    }
+  }
+
+  for (const road of worldData.roads) {
+    if (!road.geometry || road.geometry.length === 0) continue;
+    const midpoint = road.geometry[Math.floor(road.geometry.length / 2)];
+    const point = projectToLocal(midpoint.lat, midpoint.lon, refLat, refLon);
+    return [point.x, 2.2, point.z];
+  }
+
+  return [0, 2.2, 0];
+}
 
 export default function LoadingScreen() {
   const location = useGameStore((s) => s.location);
@@ -54,17 +142,7 @@ export default function LoadingScreen() {
         await new Promise((r) => setTimeout(r, 500));
 
         setLoadingProgress(95, 'Building 3D world...');
-        let spawnPos: [number, number, number] = [0, 1.5, 0];
-        if (worldData.roads.length > 0) {
-          const road = worldData.roads[0];
-          if (road.geometry && road.geometry.length > 0) {
-            // Pick a point near the middle of the road segment
-            const midIdx = Math.floor(road.geometry.length / 2);
-            const pt = road.geometry[midIdx];
-            const { x, z } = projectToLocal(pt.lat, pt.lon, location!.lat, location!.lon);
-            spawnPos = [x, 1.5, z];
-          }
-        }
+        const spawnPos = findSpawnPosition(worldData, location!.lat, location!.lon);
         setWorldData(worldData, spawnPos);
 
         await new Promise((r) => setTimeout(r, 300));

@@ -4,7 +4,7 @@
  */
 
 import { memo, useMemo } from 'react';
-import { RigidBody } from '@react-three/rapier';
+import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
@@ -20,6 +20,8 @@ interface BuildingInstance {
   position: [number, number, number];
   shapePoints: THREE.Vector2[];
   wallHeight: number;
+  colliderSize: [number, number, number];
+  colliderOffset: [number, number, number];
   style: ReturnType<typeof getBuildingStyle>;
   key: string;
 }
@@ -148,6 +150,12 @@ function useBuildingInstances(): BuildingInstance[] {
         position: [centroid.x, 0, centroid.z],
         shapePoints,
         wallHeight,
+        colliderSize: [
+          Math.max(footprint.width / 2, 1.5),
+          Math.max(totalHeight / 2, 1.5),
+          Math.max(footprint.depth / 2, 1.5),
+        ],
+        colliderOffset: [0, totalHeight / 2, 0],
         style,
         key: `bld-${building.id}`,
       });
@@ -200,9 +208,10 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
     <RigidBody
       type="fixed"
       position={instance.position}
-      colliders="trimesh"
+      colliders={false}
     >
       <group>
+        <CuboidCollider args={instance.colliderSize} position={instance.colliderOffset} />
         <mesh geometry={bodyGeometry} castShadow receiveShadow>
           <meshStandardMaterial
             attach="material-0"
