@@ -15,6 +15,7 @@ import {
   getWindowGlowIntensity,
   type BuildingFootprintMetrics,
 } from './buildingTheme';
+import { Text } from '@react-three/drei';
 
 interface BuildingInstance {
   position: [number, number, number];
@@ -24,6 +25,8 @@ interface BuildingInstance {
   colliderOffset: [number, number, number];
   style: ReturnType<typeof getBuildingStyle>;
   key: string;
+  name: string | null;
+  totalHeight: number;
 }
 
 interface ProjectedPoint {
@@ -158,6 +161,8 @@ function useBuildingInstances(): BuildingInstance[] {
         colliderOffset: [0, totalHeight / 2, 0],
         style,
         key: `bld-${building.id}`,
+        name: building.tags?.name || null,
+        totalHeight,
       });
     }
 
@@ -248,6 +253,20 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             <meshStandardMaterial color={detail.color} roughness={0.85} metalness={0.12} />
           </mesh>
         ))}
+        {instance.name && (
+          <Text
+            position={[0, instance.totalHeight + 4, 0]}
+            fontSize={4}
+            color="#ffffff"
+            outlineWidth={0.4}
+            outlineColor="#000000"
+            anchorX="center"
+            anchorY="middle"
+            characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
+          >
+            {instance.name}
+          </Text>
+        )}
       </group>
     </RigidBody>
   );

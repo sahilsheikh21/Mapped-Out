@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
+import { Text } from '@react-three/drei';
 
 /**
  * Create a ribbon mesh geometry along a polyline with a given width.
@@ -108,7 +109,7 @@ function roadColor(roadType: string): string {
 /**
  * Single road component — visual only, no physics collider.
  */
-function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; id: number } }) {
+function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
   const geometry = useMemo(
     () => createRoadRibbon(road.points, road.width),
     [road.points, road.width]
@@ -117,13 +118,28 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
   const color = roadColor(road.type);
 
   return (
-    <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial
-        color={color}
-        roughness={0.9}
-        metalness={0.05}
-      />
-    </mesh>
+    <group>
+      <mesh geometry={geometry} receiveShadow>
+        <meshStandardMaterial
+          color={color}
+          roughness={0.9}
+          metalness={0.05}
+        />
+      </mesh>
+      {road.name && road.midPoint && (
+        <Text
+          position={[road.midPoint.x, 0.05, road.midPoint.z]}
+          rotation={[-Math.PI / 2, 0, road.rotY || 0]}
+          fontSize={road.width * 0.4}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+          characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
+        >
+          {road.name}
+        </Text>
+      )}
+    </group>
   );
 }
 
@@ -146,11 +162,28 @@ export default function RoadGenerator() {
           return new THREE.Vector3(x, 0.02, z); // Just above ground for visual
         });
 
+        let midPoint: THREE.Vector3 | undefined;
+        let rotY = 0;
+        if (points.length >= 2) {
+          const index = Math.floor(points.length / 2);
+          const p1 = points[Math.max(0, index - 1)];
+          const p2 = points[Math.min(points.length - 1, index + 1)] || points[index];
+          midPoint = points[index];
+          
+          if (p1 && p2) {
+            // angle along the road
+            rotY = Math.atan2(p2.z - p1.z, p2.x - p1.x); 
+          }
+        }
+
         return {
           points,
           width: road.widthMeters,
           type: road.roadType,
           id: road.id,
+          name: road.tags?.name || null,
+          midPoint,
+          rotY,
         };
       });
   }, [worldData, refLat, refLon]);
