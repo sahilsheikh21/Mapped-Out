@@ -8,7 +8,7 @@ import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { fetchOSMData } from '../api/overpass';
 import { parseOSMResponse } from '../api/osmParser';
-import { getBBox } from '../utils/geo';
+import { getBBox, projectToLocal } from '../utils/geo';
 
 export default function LoadingScreen() {
   const location = useGameStore((s) => s.location);
@@ -54,7 +54,18 @@ export default function LoadingScreen() {
         await new Promise((r) => setTimeout(r, 500));
 
         setLoadingProgress(95, 'Building 3D world...');
-        setWorldData(worldData);
+        let spawnPos: [number, number, number] = [0, 1.5, 0];
+        if (worldData.roads.length > 0) {
+          const road = worldData.roads[0];
+          if (road.geometry && road.geometry.length > 0) {
+            // Pick a point near the middle of the road segment
+            const midIdx = Math.floor(road.geometry.length / 2);
+            const pt = road.geometry[midIdx];
+            const { x, z } = projectToLocal(pt.lat, pt.lon, location!.lat, location!.lon);
+            spawnPos = [x, 1.5, z];
+          }
+        }
+        setWorldData(worldData, spawnPos);
 
         await new Promise((r) => setTimeout(r, 300));
 

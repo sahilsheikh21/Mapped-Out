@@ -10,6 +10,7 @@ import { RigidBody, CuboidCollider, useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useVehicleStore } from '../stores/vehicleStore';
+import { useWorldStore } from '../stores/worldStore';
 import { ASSET_SCALE, CAR_MAX_SPEED, CAR_STEER_ANGLE } from '../utils/constants';
 import { clamp, lerp } from '../utils/math';
 
@@ -25,6 +26,8 @@ export default function Vehicle() {
   const setSpeed = useVehicleStore((s) => s.setSpeed);
   const setPosition = useVehicleStore((s) => s.setPosition);
   const setRotation = useVehicleStore((s) => s.setRotation);
+
+  const spawnPosition = useWorldStore((s) => s.spawnPosition);
 
   const [currentSteer, setCurrentSteer] = useState(0);
 
@@ -61,7 +64,7 @@ export default function Vehicle() {
 
     // Reset car
     if (resetCar) {
-      body.setTranslation({ x: 0, y: 1.5, z: 0 }, true);
+      body.setTranslation({ x: spawnPosition[0], y: spawnPosition[1], z: spawnPosition[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
@@ -165,7 +168,7 @@ export default function Vehicle() {
       ref={bodyRef}
       type="dynamic"
       mass={15}
-      position={[0, 1.5, 0]}
+      position={spawnPosition}
       linearDamping={0.3}
       angularDamping={0.8}
       canSleep={false}
