@@ -124,6 +124,9 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
           color={color}
           roughness={0.9}
           metalness={0.05}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
         />
       </mesh>
       {road.name && road.midPoint && (
@@ -159,7 +162,14 @@ export default function RoadGenerator() {
       .map((road) => {
         const points = road.geometry.map((pt) => {
           const { x, z } = projectToLocal(pt.lat, pt.lon, refLat, refLon);
-          return new THREE.Vector3(x, 0.02, z); // Just above ground for visual
+          
+          // Layer road heights to prevent Z-fighting between different road types
+          let height = 0.02;
+          if (road.roadType === 'motorway' || road.roadType === 'trunk') height = 0.05;
+          else if (road.roadType === 'primary') height = 0.04;
+          else if (road.roadType === 'secondary') height = 0.03;
+          
+          return new THREE.Vector3(x, height, z);
         });
 
         let midPoint: THREE.Vector3 | undefined;
