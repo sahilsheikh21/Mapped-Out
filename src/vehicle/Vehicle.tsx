@@ -61,7 +61,7 @@ export default function Vehicle() {
 
     // Reset car
     if (resetCar) {
-      body.setTranslation({ x: 0, y: 2, z: 0 }, true);
+      body.setTranslation({ x: 0, y: 1.5, z: 0 }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
@@ -165,18 +165,19 @@ export default function Vehicle() {
       ref={bodyRef}
       type="dynamic"
       mass={15}
-      position={[0, 2, 0]}
+      position={[0, 1.5, 0]}
       linearDamping={0.3}
       angularDamping={0.8}
       canSleep={false}
       enabledRotations={[false, true, false]}
+      colliders={false}
     >
-      <CuboidCollider args={[1.2, 0.5, 2.2]} position={[0, 0.5, 0]} friction={0.5} />
+      <CuboidCollider args={[1.2, 0.4, 2.2]} position={[0, 0.4, 0]} friction={0.8} />
       <group ref={meshRef}>
         <primitive
           object={carModel}
           scale={[carScale, carScale, carScale]}
-          position={[0, -0.1, 0]}
+          position={[0, 0, 0]}
           rotation={[0, Math.PI, 0]}
         />
       </group>
