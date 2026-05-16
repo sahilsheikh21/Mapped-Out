@@ -1,13 +1,16 @@
 /**
  * Vehicle: Rapier DynamicRayCastVehicleController physics.
- * Ported from car-physics-main reference.
+ * 
+ * CLEAN ARCHITECTURE:
+ * - Rapier's forward axis is +Z (indexForwardAxis = 2).
+ * - Visual model natively faced -Z, so it is wrapped in a 180-deg Y-rotation group to face +Z.
+ * - This means ALL physics (wheels, forces, steering) perfectly align with +Z without negation hacks.
  */
 
 import { useRef, useEffect, useMemo } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { RigidBody, CuboidCollider, useRapier, useBeforePhysicsStep } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
-
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { useVehicleStore } from '../stores/vehicleStore';
@@ -25,60 +28,46 @@ import {
   CAR_ROLLED_OVER_THRESHOLD, CAR_AIRTIME_RESET_THRESHOLD,
 } from '../utils/constants';
 
-// ─── Model ────────────────────────────────────────────────────────────────────
 const MODEL_PATH  = '/assets/vehicles/realistic-sports-car.fbx';
 const MODEL_SCALE = 0.0108;
 const MODEL_OFFSET: [number, number, number] = [0, 0.02, 0];
-const MODEL_ROT:   [number, number, number]  = [-Math.PI / 2, 0, 0];
+const MODEL_ROT: [number, number, number] = [-Math.PI / 2, 0, 0];
 
-// ─── Collider ─────────────────────────────────────────────────────────────────
 const COL_HALF_X = 1.0 * 0.85;
 const COL_HALF_Y = 0.45 * 0.70;
 const COL_HALF_Z = 2.15 * 0.85;
 const COL_Y      = 0.45;
 
-// ─── Wheel layout (chassis-local) ─────────────────────────────────────────────
-// Car forward = -Z, right = +X, up = +Y
-// Wheel connection points taken from the sports-car FBX footprint so the
-// suspension lines up with the visible axles instead of guessed dimensions.
+// Wheel positions (Rapier space, +Z = forward)
 const WHEEL_POS: [number, number, number][] = [
-  [-0.78, 0.46, -1.28],
-  [0.77, 0.46, -1.28],
-  [-0.85, 0.46, 1.35],
-  [0.84, 0.46, 1.35],
+  [-0.78, 0.46,  1.28], // front-left  (+Z)
+  [ 0.77, 0.46,  1.28], // front-right (+Z)
+  [-0.85, 0.46, -1.35], // rear-left   (-Z)
+  [ 0.84, 0.46, -1.35], // rear-right  (-Z)
 ];
+// Indices 0,1 are front wheels (they do the steering)
 const IS_FRONT = [true, true, false, false];
 const NUM_WHEELS = 4;
 const PHYSICS_STEP = 1 / 60;
-
 const SUSP_DIR = { x: 0, y: -1, z: 0 };
 const AXLE_DIR = { x: -1, y: 0, z: 0 };
 
-// ─── Keyboard ─────────────────────────────────────────────────────────────────
 const keys: Record<string, boolean> = {};
+const _vel = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function Vehicle() {
-  const bodyRef    = useRef<RapierRigidBody>(null);
-  const { world }  = useRapier();
-
-  const vcRef       = useRef<ReturnType<typeof world.createVehicleController> | null>(null);
-  const vcReadyRef  = useRef(false);
-  const steerRef    = useRef(0);          // smoothed steer (-1..1)
-  const airtimeRef  = useRef(0);
+  const bodyRef = useRef<RapierRigidBody>(null);
+  const { world } = useRapier();
+  const vcRef = useRef<ReturnType<typeof world.createVehicleController> | null>(null);
+  const vcReadyRef = useRef(false);
+  const steerRef = useRef(0);
+  const airtimeRef = useRef(0);
   const resetTimeRef = useRef(-999);
-  const controlStateRef = useRef({
-    engineForce: 0,
-    brakeForce: 0,
-    steerRad: 0,
-    frictionSlip: CAR_FRICTION_SLIP_HIGH,
-    downForce: 0,
-  });
 
-  // ─── FBX ──────────────────────────────────────────────────────────────────
-  const fbx      = useLoader(FBXLoader, MODEL_PATH);
+  const fbx = useLoader(FBXLoader, MODEL_PATH);
   const carModel = useMemo(() => fbx.clone(true), [fbx]);
-
   useEffect(() => {
     carModel.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -88,32 +77,29 @@ export default function Vehicle() {
     });
   }, [carModel]);
 
-  // ─── Store ────────────────────────────────────────────────────────────────
-  const setSpeed      = useVehicleStore(s => s.setSpeed);
+  const setSpeed = useVehicleStore(s => s.setSpeed);
   const setSteerAngle = useVehicleStore(s => s.setSteerAngle);
-  const setInput      = useVehicleStore(s => s.setInput);
-  const setPosition   = useVehicleStore(s => s.setPosition);
-  const setRotation   = useVehicleStore(s => s.setRotation);
+  const setInput = useVehicleStore(s => s.setInput);
+  const setPosition = useVehicleStore(s => s.setPosition);
+  const setRotation = useVehicleStore(s => s.setRotation);
   const spawnPosition = useWorldStore(s => s.spawnPosition);
-  const spawnRef      = useRef(spawnPosition);
+  const spawnRef = useRef(spawnPosition);
   useEffect(() => { spawnRef.current = spawnPosition; }, [spawnPosition]);
 
-  // ─── Keyboard listeners ───────────────────────────────────────────────────
   useEffect(() => {
     const dn = (e: KeyboardEvent) => { keys[e.code] = true; };
     const up = (e: KeyboardEvent) => { keys[e.code] = false; };
     const bl = () => Object.keys(keys).forEach(k => { keys[k] = false; });
     window.addEventListener('keydown', dn);
-    window.addEventListener('keyup',   up);
-    window.addEventListener('blur',    bl);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', bl);
     return () => {
       window.removeEventListener('keydown', dn);
-      window.removeEventListener('keyup',   up);
-      window.removeEventListener('blur',    bl);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', bl);
     };
   }, []);
 
-  // ─── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (vcRef.current) {
@@ -124,23 +110,16 @@ export default function Vehicle() {
     };
   }, [world]);
 
-  // ─── Physics step: init + updateVehicle ───────────────────────────────────
-  // useBeforePhysicsStep runs before each Rapier world.step() — correct place
-  // to call updateVehicle() so forces are integrated in the same step.
   useBeforePhysicsStep(() => {
-    // Lazy init on first step once body is mounted
     if (!vcReadyRef.current && bodyRef.current) {
       const vc = world.createVehicleController(bodyRef.current);
       vc.indexUpAxis = 1;
-      // Setter is named setIndexForwardAxis per Rapier's d.ts convention
-      vc.setIndexForwardAxis = 2;
-
+      vc.setIndexForwardAxis = 2; // +Z is forward
       WHEEL_POS.forEach((pos, i) => {
         vc.addWheel(
           { x: pos[0], y: pos[1], z: pos[2] },
           SUSP_DIR, AXLE_DIR,
-          CAR_SUSPENSION_REST_LENGTH,
-          CAR_WHEEL_RADIUS,
+          CAR_SUSPENSION_REST_LENGTH, CAR_WHEEL_RADIUS,
         );
         vc.setWheelMaxSuspensionTravel(i, CAR_SUSPENSION_MAX_TRAVEL);
         vc.setWheelSuspensionStiffness(i, CAR_SUSPENSION_STIFFNESS);
@@ -150,155 +129,129 @@ export default function Vehicle() {
         vc.setWheelSideFrictionStiffness(i, CAR_SIDE_FRICTION_STIFFNESS);
         vc.setWheelFrictionSlip(i, CAR_FRICTION_SLIP_HIGH);
       });
-
-      vcRef.current   = vc;
+      vcRef.current = vc;
       vcReadyRef.current = true;
     }
 
-    if (vcRef.current) {
-      const control = controlStateRef.current;
-
-      for (let i = 0; i < NUM_WHEELS; i++) {
-        vcRef.current.setWheelEngineForce(i, control.engineForce);
-        vcRef.current.setWheelBrake(i, control.brakeForce);
-        vcRef.current.setWheelSteering(i, IS_FRONT[i] ? -control.steerRad : 0);
-        vcRef.current.setWheelFrictionSlip(i, control.frictionSlip);
-      }
-
-      if (control.downForce > 0 && bodyRef.current) {
-        bodyRef.current.applyImpulse({ x: 0, y: -control.downForce, z: 0 }, true);
-      }
-
-      vcRef.current.updateVehicle(PHYSICS_STEP);
-    }
-  });
-
-  // ─── Frame: input → forces → store ───────────────────────────────────────
-  useFrame((_, delta) => {
-    const dt   = Math.min(delta, 0.05);
-
-    const vc   = vcRef.current;
+    const vc = vcRef.current;
     const body = bodyRef.current;
     if (!vc || !body) return;
 
-    // ── Input ──────────────────────────────────────────────────────────────
-    const fwd  = (keys['KeyW'] || keys['ArrowUp'])    ? 1 : 0;
-    const bwd  = (keys['KeyS'] || keys['ArrowDown'])  ? 1 : 0;
-    const lft  = (keys['KeyA'] || keys['ArrowLeft'])  ? 1 : 0;
-    const rgt  = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
-    const brk  =  keys['Space']                        ? 1 : 0;
-
-    const throttleInput = fwd - bwd;   // -1..1
-    const steerInput    = rgt - lft;   // -1..1
-
-    setInput({ throttle: Math.max(throttleInput, 0), brake: brk, steering: steerInput, handbrake: false });
-
-    // ── Chassis state ──────────────────────────────────────────────────────
-    const lv   = body.linvel();
-    const vel  = new THREE.Vector3(lv.x, lv.y, lv.z);
-    const rot  = body.rotation();
-    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);
-
-    const fwdDir   = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
-    const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
-    const upDir    = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
-
-    const vehicleSpeed = vc.currentVehicleSpeed();
-    const speed01      = clamp(Math.abs(vehicleSpeed) / CAR_MAX_SPEED, 0, 1);
-
-    // ── Reset ──────────────────────────────────────────────────────────────
     const now = performance.now() / 1000;
+
+    // Inputs
+    const fwd = (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0;
+    const bwd = (keys['KeyS'] || keys['ArrowDown']) ? 1 : 0;
+    const lft = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0;
+    const rgt = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
+    const brk = keys['Space'] ? 1 : 0;
+
+    // Standard input mapping: +1 = forward, +1 = turn right
+    const accelInput = clamp(fwd - bwd, -1, 1);
+    const steerInput = clamp(rgt - lft, -1, 1);
+
+    // Actual physics velocity for accurate speed checks (avoids raycast bugs)
+    const lv = body.linvel();
+    _vel.set(lv.x, lv.y, lv.z);
+    const actualSpeed = Math.hypot(lv.x, lv.z);
+    
+    // Determine if car is moving physically forward (+Z)
+    const rot = body.rotation();
+    const q = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);
+    const zForward = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const forwardSpeed = _vel.dot(zForward);
+    const speed01 = clamp(actualSpeed / CAR_MAX_SPEED, 0, 1);
+
+    _up.set(0, 1, 0).applyQuaternion(q);
+
+    // Reset logic
     const doReset = () => {
       const sp = spawnRef.current;
-      body.setTranslation({ x: sp[0], y: sp[1] + 1, z: sp[2] }, true);
+      body.setTranslation({ x: sp[0], y: sp[1] + 0.5, z: sp[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-      const q = new THREE.Quaternion();
-      body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
-      steerRef.current  = 0;
+      const rq = new THREE.Quaternion();
+      body.setRotation({ x: rq.x, y: rq.y, z: rq.z, w: rq.w }, true);
+      steerRef.current = 0;
       airtimeRef.current = 0;
       resetTimeRef.current = now;
-      controlStateRef.current = {
-        engineForce: 0,
-        brakeForce: 0,
-        steerRad: 0,
-        frictionSlip: CAR_FRICTION_SLIP_HIGH,
-        downForce: 0,
-      };
     };
-
     if (keys['KeyR']) { doReset(); return; }
-
-    // Rolled over
-    const rolledOver = upDir.dot(new THREE.Vector3(0, 1, 0)) < CAR_ROLLED_OVER_THRESHOLD;
-    if (rolledOver && vel.length() < 0.1 && (now - resetTimeRef.current) > 2) {
+    if (_up.dot(_worldUp) < CAR_ROLLED_OVER_THRESHOLD && _vel.length() < 0.1 && (now - resetTimeRef.current) > 2) {
       doReset(); return;
     }
-
-    // Airtime
     let anyContact = false;
     for (let i = 0; i < NUM_WHEELS; i++) {
       if (vc.wheelIsInContact(i)) { anyContact = true; break; }
     }
-    airtimeRef.current = anyContact ? 0 : airtimeRef.current + dt;
+    airtimeRef.current = anyContact ? 0 : airtimeRef.current + PHYSICS_STEP;
     if (airtimeRef.current > CAR_AIRTIME_RESET_THRESHOLD && (now - resetTimeRef.current) > CAR_AIRTIME_RESET_THRESHOLD) {
       doReset(); return;
     }
 
-    // ── Steering smoothing (ref: dt / smoothingFactor) ─────────────────────
-    const steerT   = clamp(dt / Math.max(0.001, CAR_STEER_SMOOTHING), 0, 1);
-    const newSteer = lerp(steerRef.current, steerInput, steerT);
-    steerRef.current = newSteer;
+    // Steering smoothing
+    const steerT = clamp(PHYSICS_STEP / Math.max(0.001, CAR_STEER_SMOOTHING), 0, 1);
+    steerRef.current = lerp(steerRef.current, steerInput, steerT);
+    const maxAngle = lerp(CAR_MAX_STEER_RAD, CAR_MAX_STEER_RAD * CAR_HIGH_SPEED_STEER_FACTOR, speed01);
+    const steerRad = steerRef.current * maxAngle;
 
-    // Speed-scaled max steer (ref: lerp(maxSteer, maxSteer*0.5, speed01))
-    const maxSteer = lerp(CAR_MAX_STEER_RAD, CAR_MAX_STEER_RAD * CAR_HIGH_SPEED_STEER_FACTOR, speed01);
-    const steerRad = newSteer * maxSteer;
-    setSteerAngle(steerRad);
+    // Top speed / Braking
+    const reachedTopSpeed = actualSpeed > CAR_MAX_SPEED;
+    const isBreaking = accelInput < 0 && forwardSpeed > 0.5;
 
-    // ── Engine / brake (ref: CarPhysics.applyPhysics) ──────────────────────
-    const velDotFwd    = vel.dot(fwdDir);
-    const reachedTop   = vehicleSpeed > CAR_MAX_SPEED;
+    let breakForce = accelInput === 0 ? 0.3 : 0;
+    if (isBreaking) breakForce = CAR_BRAKE_FORCE * Math.abs(accelInput);
+    breakForce += brk * CAR_BRAKE_FORCE;
 
-    // Idle micro-brake keeps car from coasting indefinitely
-    let brakeForce = throttleInput === 0 ? 0.2 : 0;
-
-    // True braking: negative throttle while moving forward
-    if (throttleInput < 0 && vehicleSpeed > 0.05 && velDotFwd > 0) {
-      brakeForce = CAR_BRAKE_FORCE * Math.abs(throttleInput);
-    }
-    brakeForce += brk * CAR_BRAKE_FORCE;
-
-    // Acceleration
+    // Engine Force
     let accelForce = 0;
-    const isAccel = throttleInput !== 0 && !reachedTop;
-    if (isAccel) accelForce = (CAR_ACCELERATION_FORCE / PHYSICS_STEP) * throttleInput;
-    if (throttleInput < 0 && Math.abs(vehicleSpeed) > CAR_REVERSE_SPEED) accelForce = 0;
+    if (accelInput !== 0 && !reachedTopSpeed && !isBreaking) {
+      // Standard Rapier engine force scaling: force / dt
+      accelForce = (CAR_ACCELERATION_FORCE / PHYSICS_STEP) * accelInput;
+    }
+    
+    // Reverse cap
+    if (accelInput < 0 && forwardSpeed < 0 && actualSpeed > CAR_REVERSE_SPEED) {
+      accelForce = 0;
+    }
 
+    // Downforce
     const downForce = PHYSICS_STEP * CAR_MASS * speed01 * CAR_DOWN_FORCE_FACTOR;
+    if (downForce > 0) body.applyImpulse({ x: 0, y: -downForce, z: 0 }, true);
 
-    // ── Friction slip (ref: grip-based lateral friction model) ─────────────
-    const velLen     = vel.length();
-    const lateralSpd = vel.dot(rightDir);
-    const gripAmount = velLen > 0.001 ? 1 - Math.abs(lateralSpd / velLen) : 1;
-    const frictionSlip = lerp(CAR_FRICTION_SLIP_LOW, CAR_FRICTION_SLIP_HIGH, gripAmount);
+    // Apply to wheels via standard Vehicle Controller
+    for (let i = 0; i < NUM_WHEELS; i++) {
+      vc.setWheelEngineForce(i, accelForce);
+      vc.setWheelBrake(i, breakForce);
+      // Only front wheels steer (negated to match standard convention where -angle = turn right)
+      vc.setWheelSteering(i, IS_FRONT[i] ? -steerRad : 0);
+      vc.setWheelFrictionSlip(i, CAR_FRICTION_SLIP_HIGH);
+    }
 
-    controlStateRef.current = {
-      engineForce: accelForce,
-      brakeForce,
-      steerRad,
-      frictionSlip,
-      downForce,
-    };
-
-    // ── Store updates ───────────────────────────────────────────────────────
-    const pos  = body.translation();
-    const fv   = body.linvel();
-    setSpeed(Math.hypot(fv.x, fv.z));
-    setPosition([pos.x, pos.y, pos.z]);
-    setRotation([rot.x, rot.y, rot.z, rot.w]);
+    vc.updateVehicle(PHYSICS_STEP, 4); // EXCLUDE_DYNAMIC
   });
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const frameCounter = useRef(0);
+  useFrame(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    frameCounter.current++;
+    if (frameCounter.current % 3 !== 0) return;
+    const pos = body.translation();
+    const rot = body.rotation();
+    const lv = body.linvel();
+    setSpeed(Math.hypot(lv.x, lv.z));
+    setPosition([pos.x, pos.y, pos.z]);
+    setRotation([rot.x, rot.y, rot.z, rot.w]);
+    setSteerAngle(steerRef.current * CAR_MAX_STEER_RAD);
+    setInput({
+      throttle: (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0,
+      brake: keys['Space'] ? 1 : 0,
+      steering: ((keys['KeyD'] || keys['ArrowRight']) ? 1 : 0) - ((keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0),
+      handbrake: !!keys['Space'],
+    });
+  });
+
   return (
     <RigidBody
       ref={bodyRef}
@@ -317,12 +270,19 @@ export default function Vehicle() {
         friction={0}
         restitution={0.1}
       />
-      <primitive
-        object={carModel}
-        scale={[MODEL_SCALE, MODEL_SCALE, MODEL_SCALE]}
-        position={MODEL_OFFSET}
-        rotation={MODEL_ROT}
-      />
+      {/* 
+        Wrap model in a 180-deg Y-rotation group. 
+        This flips the visual model so its nose points to +Z, perfectly aligning 
+        it with the vehicle controller's indexForwardAxis. 
+      */}
+      <group rotation={[0, Math.PI, 0]}>
+        <primitive
+          object={carModel}
+          scale={[MODEL_SCALE, MODEL_SCALE, MODEL_SCALE]}
+          position={MODEL_OFFSET}
+          rotation={MODEL_ROT}
+        />
+      </group>
     </RigidBody>
   );
 }

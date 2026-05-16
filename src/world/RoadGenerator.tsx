@@ -1,16 +1,15 @@
 /**
  * RoadGenerator: Renders roads as flat ribbon meshes along OSM road polylines.
  * 
- * Instead of tiling Kenney road pieces (which would require complex intersection
- * detection), we generate smooth ribbon geometry that follows the real road path,
- * giving accurate road shapes for any location in the world.
- * 
- * Road surfaces use a dark gray material to match the Kenney aesthetic.
- * Kenney road props (lampposts, signs) are placed alongside.
+ * Roads are VISUAL ONLY — no individual physics colliders.
+ * The car drives on the GroundPlane's single CuboidCollider at Y=0.
+ * This avoids hundreds of trimesh colliders that cause:
+ * - Massive physics overhead (each trimesh = expensive broadphase entry)
+ * - Collision fighting between road surface and ground plane
+ * - Vehicle jitter from overlapping colliders at intersections
  */
 
 import { useMemo } from 'react';
-import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
@@ -107,7 +106,7 @@ function roadColor(roadType: string): string {
 }
 
 /**
- * Single road component.
+ * Single road component — visual only, no physics collider.
  */
 function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; id: number } }) {
   const geometry = useMemo(
@@ -118,15 +117,13 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
   const color = roadColor(road.type);
 
   return (
-    <RigidBody type="fixed" colliders="trimesh" friction={0.8}>
-      <mesh geometry={geometry} receiveShadow>
-        <meshStandardMaterial
-          color={color}
-          roughness={0.9}
-          metalness={0.05}
-        />
-      </mesh>
-    </RigidBody>
+    <mesh geometry={geometry} receiveShadow>
+      <meshStandardMaterial
+        color={color}
+        roughness={0.9}
+        metalness={0.05}
+      />
+    </mesh>
   );
 }
 
@@ -146,7 +143,7 @@ export default function RoadGenerator() {
       .map((road) => {
         const points = road.geometry.map((pt) => {
           const { x, z } = projectToLocal(pt.lat, pt.lon, refLat, refLon);
-          return new THREE.Vector3(x, 0.05, z); // Slightly above ground
+          return new THREE.Vector3(x, 0.02, z); // Just above ground for visual
         });
 
         return {

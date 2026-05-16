@@ -87,7 +87,7 @@ export default function CameraRig() {
   }, [cameraMode]);
 
   // ─── Frame Update ─────────────────────────────────
-  useFrame(({ camera }) => {
+  useFrame(({ camera }, delta) => {
     const position = useVehicleStore.getState().position;
     const rotation = useVehicleStore.getState().rotation;
 
@@ -110,7 +110,7 @@ export default function CameraRig() {
 
       // Auto-return yaw behind the car when not moving the mouse
       // Get car's facing direction as a yaw angle
-      const carForward = new THREE.Vector3(0, 0, -1).applyQuaternion(carQuat);
+      const carForward = new THREE.Vector3(0, 0, 1).applyQuaternion(carQuat);
       const carYaw = Math.atan2(carForward.x, carForward.z);
 
       // If pointer is NOT locked, smoothly return behind the car
@@ -139,12 +139,16 @@ export default function CameraRig() {
         carPos.z + offsetZ
       );
 
-      // Smooth follow
-      idealPos.current.lerp(targetCamPos, CHASE_CAM_LERP);
-      idealTarget.current.lerp(
-        carPos.clone().add(new THREE.Vector3(0, 1.2, 0)),
-        CHASE_CAM_LERP
-      );
+      // Smooth follow (frame-rate independent)
+      const dampFactor = 5.0; // Higher = tighter follow
+      idealPos.current.x = THREE.MathUtils.damp(idealPos.current.x, targetCamPos.x, dampFactor, delta);
+      idealPos.current.y = THREE.MathUtils.damp(idealPos.current.y, targetCamPos.y, dampFactor, delta);
+      idealPos.current.z = THREE.MathUtils.damp(idealPos.current.z, targetCamPos.z, dampFactor, delta);
+      
+      const targetLook = carPos.clone().add(new THREE.Vector3(0, 1.2, 0));
+      idealTarget.current.x = THREE.MathUtils.damp(idealTarget.current.x, targetLook.x, dampFactor * 1.5, delta);
+      idealTarget.current.y = THREE.MathUtils.damp(idealTarget.current.y, targetLook.y, dampFactor * 1.5, delta);
+      idealTarget.current.z = THREE.MathUtils.damp(idealTarget.current.z, targetLook.z, dampFactor * 1.5, delta);
 
       camera.position.copy(idealPos.current);
       camera.lookAt(idealTarget.current);
