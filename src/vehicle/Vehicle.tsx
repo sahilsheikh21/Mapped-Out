@@ -97,8 +97,6 @@ export default function Vehicle() {
   const spawnRotation = useWorldStore(s => s.spawnRotation);
   const spawnRef = useRef(spawnPosition);
   const spawnRotRef = useRef(spawnRotation);
-  const resetTrigger = useVehicleStore(s => s.resetTrigger);
-  const lastResetTriggerRef = useRef(resetTrigger);
   
   useEffect(() => { 
     spawnRef.current = spawnPosition; 
@@ -206,12 +204,6 @@ export default function Vehicle() {
     }
     airtimeRef.current = anyContact ? 0 : airtimeRef.current + PHYSICS_STEP;
     if (airtimeRef.current > CAR_AIRTIME_RESET_THRESHOLD && (now - resetTimeRef.current) > CAR_AIRTIME_RESET_THRESHOLD) {
-      doReset(); return;
-    }
-    
-    // Store Trigger Reset
-    if (resetTrigger !== lastResetTriggerRef.current) {
-      lastResetTriggerRef.current = resetTrigger;
       doReset(); return;
     }
 

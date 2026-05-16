@@ -14,7 +14,6 @@ interface VehicleState {
   brake: number; // 0 to 1
   steering: number; // -1 (left) to 1 (right)
   handbrake: boolean;
-  resetTrigger: number;
 
   // ─── Actions ────────────────────────────────
   setSpeed: (speed: number) => void;
@@ -34,7 +33,6 @@ export const useVehicleStore = create<VehicleState>((set) => ({
   brake: 0,
   steering: 0,
   handbrake: false,
-  resetTrigger: 0,
 
   setSpeed: (speed) => set({ speed }),
   setSteerAngle: (angle) => set({ steerAngle: angle }),
@@ -51,6 +49,5 @@ export const useVehicleStore = create<VehicleState>((set) => ({
       brake: 0,
       steering: 0,
       handbrake: false,
-      resetTrigger: Date.now(),
     }),
 }));

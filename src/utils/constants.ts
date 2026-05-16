@@ -31,7 +31,7 @@ export const CAR_MAX_SPEED = 25;           // m/s (~90 km/h) (reference: 25)
 export const CAR_REVERSE_SPEED = 10;       // m/s
 
 /** Engine / Brakes */
-export const CAR_ACCELERATION_FORCE = 60;  // N — punchier to avoid getting snagged
+export const CAR_ACCELERATION_FORCE = 48;  // N — tuned for arcade-snappy response
 export const CAR_BRAKE_FORCE = 30;         // N — strong braking
 
 /** Steering */
@@ -60,7 +60,7 @@ export const CAR_DOWN_FORCE_FACTOR = 20;          // (reference: 20)
 
 /** Auto-reset */
 export const CAR_ROLLED_OVER_THRESHOLD = 0.65;   // worldUp.dot(Y) below this = rolled over
-export const CAR_AIRTIME_RESET_THRESHOLD = 3.0;  // seconds airborne before reset
+export const CAR_AIRTIME_RESET_THRESHOLD = 5.0;  // seconds airborne before reset
 
 // ─── Camera ───────────────────────────────────────────────────
 export const CHASE_CAM_DISTANCE = 12;
