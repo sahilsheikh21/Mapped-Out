@@ -82,7 +82,7 @@ export default function Vehicle() {
     const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
 
     // Throttle / Brake forces
-    const throttleForce = 50;
+    const throttleForce = 150;
     const brakeForce = 80;
     const maxSpeed = CAR_MAX_SPEED;
 
@@ -175,7 +175,7 @@ export default function Vehicle() {
       enabledRotations={[false, true, false]}
       colliders={false}
     >
-      <CuboidCollider args={[1.2, 0.4, 2.2]} position={[0, 0.4, 0]} friction={0.8} />
+      <CuboidCollider args={[1.2, 0.4, 2.2]} position={[0, 0.4, 0]} friction={0} />
       <group ref={meshRef}>
         <primitive
           object={carModel}
