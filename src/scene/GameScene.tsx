@@ -86,7 +86,7 @@ export default function GameScene() {
       <SceneLighting />
       <SceneSky />
 
-      <Physics gravity={[0, -20, 0]} debug={false}>
+      <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} debug={false}>
         <Suspense fallback={null}>
           <WorldBuilder />
           <Vehicle />

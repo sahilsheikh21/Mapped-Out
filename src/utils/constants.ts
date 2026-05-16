@@ -22,20 +22,46 @@ export const UNLOAD_RADIUS = 3; // unload tiles beyond this radius
 export const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 export const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search';
 
-// ─── Vehicle Physics ──────────────────────────────────────────
-export const CAR_MAX_SPEED = 40; // m/s (~144 km/h)
-export const CAR_ACCELERATION = 24;
-export const CAR_BRAKE_FORCE = 55;
-export const CAR_STEER_ANGLE = Math.PI / 6; // 30 degrees max steer
-export const CAR_MASS = 1200; // kg
-export const CAR_REVERSE_SPEED = 14; // m/s
-export const CAR_DRAG = 0.015;
-export const CAR_ROLLING_RESISTANCE = 1.6;
-export const CAR_LATERAL_GRIP = 9;
-export const CAR_STEER_RESPONSE = 7.5;
-export const CAR_STEER_RETURN = 5.5;
-export const CAR_MAX_YAW_RATE = 2.6; // rad/s
-export const CAR_TURN_GRIP = 1.35;
+// ─── Vehicle Physics (Rapier DynamicRayCastVehicleController) ─
+// Ported from car-physics-main reference — uses proper suspension raycasting
+// instead of impulse approximations.
+
+/** Chassis */
+export const CAR_MASS = 500;               // kg — lighter = snappier response
+export const CAR_MAX_SPEED = 25;           // m/s (~90 km/h)
+export const CAR_REVERSE_SPEED = 12;       // m/s
+
+/** Engine / Brakes — forces per wheel (divided internally) */
+export const CAR_ACCELERATION_FORCE = 12;  // Newtons scaled by mass & dt (matches reference)
+export const CAR_BRAKE_FORCE = 12;         // Newtons (same scale as accel)
+
+/** Steering */
+export const CAR_MAX_STEER_DEG = 40;                        // degrees at low speed
+export const CAR_MAX_STEER_RAD = CAR_MAX_STEER_DEG * (Math.PI / 180);
+export const CAR_STEER_SMOOTHING = 0.1;                     // seconds — higher = more lag
+export const CAR_HIGH_SPEED_STEER_FACTOR = 0.5;             // steer reduces to 50% at topSpeed
+
+/** Suspension — calibrated to the current sports-car asset footprint */
+export const CAR_SUSPENSION_REST_LENGTH = 0.17;  // meters
+export const CAR_SUSPENSION_MAX_TRAVEL = 0.12;   // meters
+export const CAR_SUSPENSION_STIFFNESS = 60;      // reference-like but firmer for our map roads
+export const CAR_SUSPENSION_COMPRESSION = 4.0;   // damping when compressing
+export const CAR_SUSPENSION_RELAXATION = 5.0;    // damping when extending
+
+/** Wheel */
+export const CAR_WHEEL_RADIUS = 0.29;            // meters
+
+/** Friction */
+export const CAR_SIDE_FRICTION_STIFFNESS = 0.9; // lateral friction multiplier
+export const CAR_FRICTION_SLIP_LOW = 1;          // when grip is low (sliding)
+export const CAR_FRICTION_SLIP_HIGH = 20;        // when grip is high (planted)
+
+/** Down-force — ref applies a pull impulse proportional to speed to keep car grounded */
+export const CAR_DOWN_FORCE_FACTOR = 12;         // force = mass * speed01 * factor * dt
+
+/** Auto-reset */
+export const CAR_ROLLED_OVER_THRESHOLD = 0.65;   // worldUp.dot(Y) below this = rolled over
+export const CAR_AIRTIME_RESET_THRESHOLD = 5.0;  // seconds airborne before reset
 
 // ─── Camera ───────────────────────────────────────────────────
 export const CHASE_CAM_DISTANCE = 12;
