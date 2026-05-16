@@ -6,12 +6,26 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
-import { RigidBody, CuboidCollider, useRapier } from '@react-three/rapier';
+import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useWorldStore } from '../stores/worldStore';
-import { ASSET_SCALE, CAR_MAX_SPEED, CAR_STEER_ANGLE } from '../utils/constants';
+import {
+  ASSET_SCALE,
+  CAR_ACCELERATION,
+  CAR_BRAKE_FORCE,
+  CAR_DRAG,
+  CAR_LATERAL_GRIP,
+  CAR_MAX_SPEED,
+  CAR_MAX_YAW_RATE,
+  CAR_REVERSE_SPEED,
+  CAR_ROLLING_RESISTANCE,
+  CAR_STEER_ANGLE,
+  CAR_STEER_RESPONSE,
+  CAR_STEER_RETURN,
+  CAR_TURN_GRIP,
+} from '../utils/constants';
 import { clamp, lerp } from '../utils/math';
 
 // Keyboard input tracking
@@ -24,6 +38,8 @@ export default function Vehicle() {
   const carModel = useMemo(() => scene.clone(true), [scene]);
 
   const setSpeed = useVehicleStore((s) => s.setSpeed);
+  const setSteerAngle = useVehicleStore((s) => s.setSteerAngle);
+  const setInput = useVehicleStore((s) => s.setInput);
   const setPosition = useVehicleStore((s) => s.setPosition);
   const setRotation = useVehicleStore((s) => s.setRotation);
 
@@ -39,13 +55,20 @@ export default function Vehicle() {
     const onKeyUp = (e: KeyboardEvent) => {
       keys[e.code] = false;
     };
+    const onBlur = () => {
+      Object.keys(keys).forEach((key) => {
+        keys[key] = false;
+      });
+    };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
 
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     };
   }, []);
 
@@ -61,9 +84,21 @@ export default function Vehicle() {
     const right = keys['KeyD'] || keys['ArrowRight'] ? 1 : 0;
     const brake = keys['Space'] ? 1 : 0;
     const resetCar = keys['KeyR'];
+    const throttleInput = forward - backward;
+    const steerInput = right - left;
+
+    setInput({
+      throttle: Math.max(throttleInput, 0),
+      brake,
+      steering: steerInput,
+      handbrake: false,
+    });
 
     // Reset car
     if (resetCar) {
+      setCurrentSteer(0);
+      setSteerAngle(0);
+      setInput({ throttle: 0, brake: 0, steering: 0, handbrake: false });
       body.setTranslation({ x: spawnPosition[0], y: spawnPosition[1], z: spawnPosition[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -84,75 +119,91 @@ export default function Vehicle() {
     const quat = new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
     const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(quat);
     const rightDir = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
+    const forwardSpeed = forwardDir.x * currentVel.x + forwardDir.z * currentVel.z;
+    const lateralSpeed = rightDir.x * currentVel.x + rightDir.z * currentVel.z;
+    const signedSpeed = throttleInput === 0 ? forwardSpeed : speed * Math.sign(forwardSpeed || throttleInput);
+    const speedLimit = throttleInput >= 0 ? CAR_MAX_SPEED : CAR_REVERSE_SPEED;
+    const mass = body.mass();
 
-    // Throttle / Brake impulses
-    const engineForce = 800.0; 
-    const maxSpeed = CAR_MAX_SPEED;
-
-    if (forward && speed < maxSpeed) {
+    // Engine drive
+    if (throttleInput !== 0 && Math.abs(signedSpeed) < speedLimit) {
+      const tractionForce = CAR_ACCELERATION * mass;
       body.applyImpulse({
-        x: forwardDir.x * engineForce * dt,
+        x: forwardDir.x * tractionForce * throttleInput * dt,
         y: 0,
-        z: forwardDir.z * engineForce * dt,
+        z: forwardDir.z * tractionForce * throttleInput * dt,
       }, true);
     }
 
-    if (backward) {
+    // Space acts as a hard brake, and opposite throttle acts like braking before reversing.
+    const brakingInput = brake || (throttleInput !== 0 && Math.sign(throttleInput) !== Math.sign(forwardSpeed) && Math.abs(forwardSpeed) > 0.4)
+      ? 1
+      : 0;
+    if (brakingInput && speed > 0.05) {
+      const brakeStrength = CAR_BRAKE_FORCE * mass;
+      const velocityDir = currentVel.clone().normalize();
       body.applyImpulse({
-        x: -forwardDir.x * engineForce * 0.5 * dt,
+        x: -velocityDir.x * brakeStrength * dt,
         y: 0,
-        z: -forwardDir.z * engineForce * 0.5 * dt,
+        z: -velocityDir.z * brakeStrength * dt,
       }, true);
     }
 
-    if (brake) {
-      // Apply an impulse opposite to current velocity to brake
+    // Natural slowing so the car does not coast forever.
+    if (speed > 0.01) {
+      const dragImpulse = currentVel.clone().multiplyScalar(-(CAR_ROLLING_RESISTANCE + speed * CAR_DRAG) * mass * dt);
       body.applyImpulse({
-        x: -currentVel.x * 20 * dt,
+        x: dragImpulse.x,
         y: 0,
-        z: -currentVel.z * 20 * dt,
+        z: dragImpulse.z,
       }, true);
     }
 
-    // Steering (apply torque)
-    const steerInput = right - left;
+    // Steering uses signed forward speed so W+D / S+D both combine instantly.
     const targetSteer = steerInput * CAR_STEER_ANGLE;
-    const newSteer = lerp(currentSteer, targetSteer, 0.15);
+    const steerLerp = clamp((steerInput === 0 ? CAR_STEER_RETURN : CAR_STEER_RESPONSE) * dt, 0, 1);
+    const newSteer = lerp(currentSteer, targetSteer, steerLerp);
     setCurrentSteer(newSteer);
+    setSteerAngle(newSteer);
 
-    if (speed > 0.5) {
-      const steerTorque = newSteer * 150 * Math.min(speed / 5, 1);
+    const absForwardSpeed = Math.abs(forwardSpeed);
+    if (absForwardSpeed > 0.15 && Math.abs(newSteer) > 0.001) {
+      const steerDirection = Math.sign(forwardSpeed) || 1;
+      const targetYawRate = clamp(
+        (newSteer / CAR_STEER_ANGLE) * (absForwardSpeed / speedLimit) * CAR_MAX_YAW_RATE * steerDirection,
+        -CAR_MAX_YAW_RATE,
+        CAR_MAX_YAW_RATE
+      );
+      const yawRateDelta = targetYawRate - body.angvel().y;
       body.applyTorqueImpulse({
         x: 0,
-        y: -steerTorque * dt,
+        y: yawRateDelta * mass * CAR_TURN_GRIP * dt,
         z: 0,
       }, true);
     }
 
-    // Lateral friction (cancel out sideways sliding tightly)
-    const lateralSpeed = rightDir.x * currentVel.x + rightDir.z * currentVel.z;
-    if (Math.abs(lateralSpeed) > 0.01) {
-      // The exact impulse required to completely stop lateral movement
-      const mass = body.mass();
-      const requiredImpulse = mass * lateralSpeed;
-      
-      // Apply enough friction to eliminate sliding almost instantly (arcade physics)
-      // Cap it to the exact required impulse to avoid jitter/oscillations
-      const gripFactor = 10000.0 * dt; 
-      const frictionMagnitude = Math.min(Math.abs(requiredImpulse), gripFactor * Math.abs(lateralSpeed));
-      const frictionImpulse = Math.sign(requiredImpulse) * frictionMagnitude;
-      
+    // Lateral grip keeps the body planted but still allows smooth turning arcs.
+    if (Math.abs(lateralSpeed) > 0.001) {
+      const lateralImpulse = -lateralSpeed * mass * CAR_LATERAL_GRIP * dt;
       body.applyImpulse({
-        x: -rightDir.x * frictionImpulse,
+        x: rightDir.x * lateralImpulse,
         y: 0,
-        z: -rightDir.z * frictionImpulse,
+        z: rightDir.z * lateralImpulse,
       }, true);
+    }
+
+    // Clamp horizontal speed after forces are applied so strong acceleration cannot overshoot.
+    const nextVel = body.linvel();
+    const horizontalVel = new THREE.Vector3(nextVel.x, 0, nextVel.z);
+    if (horizontalVel.length() > speedLimit) {
+      horizontalVel.normalize().multiplyScalar(speedLimit);
+      body.setLinvel({ x: horizontalVel.x, y: nextVel.y, z: horizontalVel.z }, true);
     }
 
     // Update store
     const pos = body.translation();
     const rot = body.rotation();
-    setSpeed(speed);
+    setSpeed(Math.abs(forwardSpeed));
     setPosition([pos.x, pos.y, pos.z]);
     setRotation([rot.x, rot.y, rot.z, rot.w]);
   });
