@@ -29,21 +29,21 @@ import {
 } from '../utils/constants';
 
 const MODEL_PATH  = '/assets/vehicles/realistic-sports-car.fbx';
-const MODEL_SCALE = 0.0108;
+const MODEL_SCALE = 0.012;
 const MODEL_OFFSET: [number, number, number] = [0, 0.02, 0];
 const MODEL_ROT: [number, number, number] = [-Math.PI / 2, 0, 0];
 
-const COL_HALF_X = 1.0 * 0.85;
-const COL_HALF_Y = 0.45 * 0.70;
-const COL_HALF_Z = 2.15 * 0.85;
+const COL_HALF_X = 1.1 * 0.85;
+const COL_HALF_Y = 0.5 * 0.70;
+const COL_HALF_Z = 2.4 * 0.85;
 const COL_Y      = 0.45;
 
 // Wheel positions (Rapier space, +Z = forward)
 const WHEEL_POS: [number, number, number][] = [
-  [-0.78, 0.46,  1.28], // front-left  (+Z)
-  [ 0.77, 0.46,  1.28], // front-right (+Z)
-  [-0.85, 0.46, -1.35], // rear-left   (-Z)
-  [ 0.84, 0.46, -1.35], // rear-right  (-Z)
+  [-0.86, 0.51,  1.42], // front-left  (+Z)
+  [ 0.85, 0.51,  1.42], // front-right (+Z)
+  [-0.94, 0.51, -1.50], // rear-left   (-Z)
+  [ 0.93, 0.51, -1.50], // rear-right  (-Z)
 ];
 // Indices 0,1 are front wheels (they do the steering)
 const IS_FRONT = [true, true, false, false];
