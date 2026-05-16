@@ -15,9 +15,7 @@ export default function WorldBuilder() {
       <Suspense fallback={null}>
         <RoadGenerator />
       </Suspense>
-      <Suspense fallback={null}>
-        <BuildingPlacer />
-      </Suspense>
+      <BuildingPlacer />
       <Suspense fallback={null}>
         <PropPlacer />
       </Suspense>

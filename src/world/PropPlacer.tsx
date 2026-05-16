@@ -4,9 +4,8 @@
 
 import { useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
-import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
-import { selectTree, PROP_ASSETS } from './assetMapper';
+import { selectTree } from './assetMapper';
 import { projectToLocal } from '../utils/geo';
 import { ASSET_SCALE } from '../utils/constants';
 import { seededRandom } from '../utils/math';

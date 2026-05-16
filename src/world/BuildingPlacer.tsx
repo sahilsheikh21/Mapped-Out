@@ -9,22 +9,18 @@ import * as THREE from 'three';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
-import { seededRandom } from '../utils/math';
 import {
   getBuildingStyle,
   getFacadeTextures,
   getWindowGlowIntensity,
   type BuildingFootprintMetrics,
-  type BuildingVisualStyle,
 } from './buildingTheme';
 
 interface BuildingInstance {
   position: [number, number, number];
   shapePoints: THREE.Vector2[];
-  totalHeight: number;
   wallHeight: number;
-  footprint: BuildingFootprintMetrics;
-  style: BuildingVisualStyle;
+  style: ReturnType<typeof getBuildingStyle>;
   key: string;
 }
 
@@ -144,16 +140,14 @@ function useBuildingInstances(): BuildingInstance[] {
         building.levels,
         totalHeight,
         footprint,
-        `building-${building.id}-${seededRandom(`facade-${building.id}`)}`
+        `building-${building.id}`
       );
       const wallHeight = Math.max(1.2, totalHeight - style.roofHeight);
 
       instances.push({
         position: [centroid.x, 0, centroid.z],
         shapePoints,
-        totalHeight,
         wallHeight,
-        footprint,
         style,
         key: `bld-${building.id}`,
       });

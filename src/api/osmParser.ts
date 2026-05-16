@@ -1,7 +1,7 @@
 /**
  * Parse raw Overpass API responses into typed game objects.
  * Adapts map3d's approach (Space.tsx lines 455-478) with
- * additional classification for Kenney asset mapping.
+ * additional classification for our procedural world renderer.
  */
 
 import type { OverpassElement, OverpassResponse } from './overpass';
