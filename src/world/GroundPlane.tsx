@@ -1,16 +1,23 @@
 /**
  * GroundPlane: Large flat ground surface for the game world.
- * Green grass with subtle grid pattern.
+ * Uses an explicit CuboidCollider since Rapier can't auto-detect
+ * colliders from rotated plane geometries.
  */
 
-import { RigidBody } from '@react-three/rapier';
+import { RigidBody, CuboidCollider } from '@react-three/rapier';
 
 export default function GroundPlane() {
   return (
-    <RigidBody type="fixed" friction={0.6} restitution={0.1}>
+    <>
+      {/* Physics ground — thin box collider at y=0 */}
+      <RigidBody type="fixed" friction={0.8} restitution={0.0} colliders={false}>
+        <CuboidCollider args={[1000, 0.1, 1000]} position={[0, -0.1, 0]} />
+      </RigidBody>
+
+      {/* Visual ground — grass plane */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.01, 0]}
+        position={[0, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[2000, 2000]} />
@@ -20,6 +27,6 @@ export default function GroundPlane() {
           metalness={0.0}
         />
       </mesh>
-    </RigidBody>
+    </>
   );
 }
