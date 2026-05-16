@@ -546,6 +546,36 @@ html, body, #root {
   font-size: 0.65rem;
 }
 
+/* Pointer Lock Hint */
+.hud-pointer-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.4rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: pointer-hint-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.hud-pointer-hint svg {
+  color: var(--accent-bright);
+}
+
+@keyframes pointer-hint-pulse {
+  0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.97); }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    CANVAS OVERRIDES
    ═══════════════════════════════════════════════════════════════ */
