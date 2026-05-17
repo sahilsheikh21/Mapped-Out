@@ -249,25 +249,31 @@ export default function Vehicle() {
     vc.updateVehicle(PHYSICS_STEP, 4); // EXCLUDE_DYNAMIC
   });
 
-  const frameCounter = useRef(0);
+  const telemetryCounter = useRef(0);
   useFrame(() => {
     const body = bodyRef.current;
     if (!body) return;
-    frameCounter.current++;
-    if (frameCounter.current % 3 !== 0) return;
+
     const pos = body.translation();
     const rot = body.rotation();
     const lv = body.linvel();
-    setSpeed(Math.hypot(lv.x, lv.z));
+
+    // Keep transform updates at full frame rate so camera motion remains smooth.
     setPosition([pos.x, pos.y, pos.z]);
     setRotation([rot.x, rot.y, rot.z, rot.w]);
-    setSteerAngle(steerRef.current * CAR_MAX_STEER_RAD);
-    setInput({
-      throttle: (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0,
-      brake: keys['Space'] ? 1 : 0,
-      steering: ((keys['KeyD'] || keys['ArrowRight']) ? 1 : 0) - ((keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0),
-      handbrake: !!keys['Space'],
-    });
+
+    // Throttle telemetry/HUD updates to reduce React/UI overhead.
+    telemetryCounter.current++;
+    if (telemetryCounter.current % 3 === 0) {
+      setSpeed(Math.hypot(lv.x, lv.z));
+      setSteerAngle(steerRef.current * CAR_MAX_STEER_RAD);
+      setInput({
+        throttle: (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0,
+        brake: keys['Space'] ? 1 : 0,
+        steering: ((keys['KeyD'] || keys['ArrowRight']) ? 1 : 0) - ((keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0),
+        handbrake: !!keys['Space'],
+      });
+    }
 
     // Update wheel visual rotation
     const steerAngle = steerRef.current * CAR_MAX_STEER_RAD;

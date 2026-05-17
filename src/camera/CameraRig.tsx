@@ -7,13 +7,13 @@
  * - Orbit: Free OrbitControls around the car (no pointer lock).
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useGameStore } from '../stores/gameStore';
-import { CHASE_CAM_DISTANCE, CHASE_CAM_HEIGHT, CHASE_CAM_LERP } from '../utils/constants';
+import { CHASE_CAM_DISTANCE, CHASE_CAM_HEIGHT } from '../utils/constants';
 import { clamp } from '../utils/math';
 
 // Mouse delta accumulator (persists across frames, updated via events)
@@ -38,13 +38,12 @@ export default function CameraRig() {
   const { gl } = useThree();
   const idealPos = useRef(new THREE.Vector3(0, CHASE_CAM_HEIGHT, CHASE_CAM_DISTANCE));
   const idealTarget = useRef(new THREE.Vector3(0, 0, 0));
-
-  // ─── Pointer Lock ─────────────────────────────────
-  const requestPointerLock = useCallback(() => {
-    if (cameraMode === 'chase' && !isPointerLocked) {
-      gl.domElement.requestPointerLock();
-    }
-  }, [gl, cameraMode]);
+  const carPos = useRef(new THREE.Vector3());
+  const carQuat = useRef(new THREE.Quaternion());
+  const carForward = useRef(new THREE.Vector3());
+  const targetCamPos = useRef(new THREE.Vector3());
+  const targetLook = useRef(new THREE.Vector3());
+  const birdsEyeTarget = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -92,8 +91,8 @@ export default function CameraRig() {
     const position = useVehicleStore.getState().position;
     const rotation = useVehicleStore.getState().rotation;
 
-    const carPos = new THREE.Vector3(...position);
-    const carQuat = new THREE.Quaternion(...rotation);
+    carPos.current.set(position[0], position[1], position[2]);
+    carQuat.current.set(rotation[0], rotation[1], rotation[2], rotation[3]);
 
     if (cameraMode === 'chase') {
       // Apply mouse delta to orbit angles
@@ -111,8 +110,8 @@ export default function CameraRig() {
 
       // Auto-return yaw behind the car when not moving the mouse
       // Get car's facing direction as a yaw angle
-      const carForward = new THREE.Vector3(0, 0, 1).applyQuaternion(carQuat);
-      const carYaw = Math.atan2(carForward.x, carForward.z);
+      carForward.current.set(0, 0, 1).applyQuaternion(carQuat.current);
+      const carYaw = Math.atan2(carForward.current.x, carForward.current.z);
 
       // If pointer is NOT locked, smoothly return behind the car
       if (!isPointerLocked) {
@@ -134,32 +133,36 @@ export default function CameraRig() {
       const offsetZ = Math.cos(cameraOrbit.yaw) * radius * Math.cos(cameraOrbit.pitch);
       const offsetY = height;
 
-      const targetCamPos = new THREE.Vector3(
-        carPos.x + offsetX,
-        carPos.y + offsetY,
-        carPos.z + offsetZ
+      targetCamPos.current.set(
+        carPos.current.x + offsetX,
+        carPos.current.y + offsetY,
+        carPos.current.z + offsetZ
       );
 
       // Smooth follow (frame-rate independent)
       const dampFactor = 5.0; // Higher = tighter follow
-      idealPos.current.x = THREE.MathUtils.damp(idealPos.current.x, targetCamPos.x, dampFactor, delta);
-      idealPos.current.y = THREE.MathUtils.damp(idealPos.current.y, targetCamPos.y, dampFactor, delta);
-      idealPos.current.z = THREE.MathUtils.damp(idealPos.current.z, targetCamPos.z, dampFactor, delta);
+      idealPos.current.x = THREE.MathUtils.damp(idealPos.current.x, targetCamPos.current.x, dampFactor, delta);
+      idealPos.current.y = THREE.MathUtils.damp(idealPos.current.y, targetCamPos.current.y, dampFactor, delta);
+      idealPos.current.z = THREE.MathUtils.damp(idealPos.current.z, targetCamPos.current.z, dampFactor, delta);
       
-      const targetLook = carPos.clone().add(new THREE.Vector3(0, 1.2, 0));
-      idealTarget.current.x = THREE.MathUtils.damp(idealTarget.current.x, targetLook.x, dampFactor * 1.5, delta);
-      idealTarget.current.y = THREE.MathUtils.damp(idealTarget.current.y, targetLook.y, dampFactor * 1.5, delta);
-      idealTarget.current.z = THREE.MathUtils.damp(idealTarget.current.z, targetLook.z, dampFactor * 1.5, delta);
+      targetLook.current.set(
+        carPos.current.x,
+        carPos.current.y + 1.2,
+        carPos.current.z
+      );
+      idealTarget.current.x = THREE.MathUtils.damp(idealTarget.current.x, targetLook.current.x, dampFactor * 1.5, delta);
+      idealTarget.current.y = THREE.MathUtils.damp(idealTarget.current.y, targetLook.current.y, dampFactor * 1.5, delta);
+      idealTarget.current.z = THREE.MathUtils.damp(idealTarget.current.z, targetLook.current.z, dampFactor * 1.5, delta);
 
       camera.position.copy(idealPos.current);
       camera.lookAt(idealTarget.current);
 
     } else if (cameraMode === 'birdsEye' && !freeCam) {
       // Bird's eye: directly above
-      const targetPos = new THREE.Vector3(carPos.x, carPos.y + 80, carPos.z + 10);
-      idealPos.current.lerp(targetPos, 0.05);
+      birdsEyeTarget.current.set(carPos.current.x, carPos.current.y + 80, carPos.current.z + 10);
+      idealPos.current.lerp(birdsEyeTarget.current, 0.05);
       camera.position.copy(idealPos.current);
-      camera.lookAt(carPos);
+      camera.lookAt(carPos.current);
     }
     // orbit and freeCam modes use controls below
   });
