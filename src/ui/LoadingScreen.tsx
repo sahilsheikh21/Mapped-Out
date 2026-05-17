@@ -7,9 +7,11 @@ import { Loader2 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { fetchOSMData } from '../api/overpass';
+import { fetchTerrainData } from '../api/elevation';
 import { parseOSMResponse } from '../api/osmParser';
 import { getBBox, projectToLocal } from '../utils/geo';
-import type { OSMBuilding, OSMRoad, WorldData } from '../stores/worldStore';
+import { sampleTerrainHeight } from '../utils/terrain';
+import type { OSMBuilding, OSMRoad, TerrainData, WorldData } from '../stores/worldStore';
 
 const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
 
@@ -61,7 +63,8 @@ function roadPriority(road: OSMRoad): number {
 function findSpawnPosition(
   worldData: WorldData,
   refLat: number,
-  refLon: number
+  refLon: number,
+  terrainData: TerrainData | null
 ): { pos: [number, number, number], rot: number } {
   const candidateRoads = worldData.roads
     .filter((road) => road.geometry && road.geometry.length >= 2 && !NON_DRIVABLE_ROADS.has(road.roadType))
@@ -87,7 +90,8 @@ function findSpawnPosition(
       if (!isBlockedByBuilding(point, worldData.buildings, refLat, refLon)) {
         // Calculate angle. ThreeJS -Z is forward. Math.atan2(x, z) gives rotation around Y.
         const rot = Math.atan2(nextPoint.x - point.x, nextPoint.z - point.z);
-        return { pos: [point.x, 0.8, point.z], rot };
+        const groundY = sampleTerrainHeight(point.x, point.z, terrainData);
+        return { pos: [point.x, groundY + 0.8, point.z], rot };
       }
     }
   }
@@ -100,10 +104,12 @@ function findSpawnPosition(
     const point = projectToLocal(sample.lat, sample.lon, refLat, refLon);
     const nextPoint = projectToLocal(nextSample.lat, nextSample.lon, refLat, refLon);
     const rot = Math.atan2(nextPoint.x - point.x, nextPoint.z - point.z);
-    return { pos: [point.x, 0.8, point.z], rot };
+    const groundY = sampleTerrainHeight(point.x, point.z, terrainData);
+    return { pos: [point.x, groundY + 0.8, point.z], rot };
   }
 
-  return { pos: [0, 0.8, 0], rot: 0 };
+  const fallbackGround = sampleTerrainHeight(0, 0, terrainData);
+  return { pos: [0, fallbackGround + 0.8, 0], rot: 0 };
 }
 
 export default function LoadingScreen() {
@@ -115,6 +121,7 @@ export default function LoadingScreen() {
 
   const setRefPoint = useWorldStore((s) => s.setRefPoint);
   const setWorldData = useWorldStore((s) => s.setWorldData);
+  const setTerrainData = useWorldStore((s) => s.setTerrainData);
 
   useEffect(() => {
     if (!location) return;
@@ -128,6 +135,7 @@ export default function LoadingScreen() {
 
         setLoadingProgress(10, 'Setting reference point...');
         setRefPoint(location!.lat, location!.lon);
+        setTerrainData(null);
 
         setLoadingProgress(15, 'Fetching map data from OpenStreetMap...');
         const osmResponse = await fetchOSMData(
@@ -144,12 +152,33 @@ export default function LoadingScreen() {
 
         if (cancelled) return;
 
-        setLoadingProgress(80, `Found ${worldData.buildings.length} buildings, ${worldData.roads.length} roads, ${worldData.trees.length} trees`);
+        setLoadingProgress(70, 'Fetching terrain elevation...');
+        let terrainData: TerrainData | null = null;
+        try {
+          terrainData = await fetchTerrainData(
+            bbox,
+            location!.lat,
+            location!.lon,
+            undefined,
+            undefined,
+            (msg) => {
+              if (!cancelled) setLoadingProgress(76, msg);
+            }
+          );
+          if (!cancelled) setTerrainData(terrainData);
+        } catch (terrainError) {
+          console.warn('Failed to fetch terrain elevation, falling back to flat ground:', terrainError);
+          if (!cancelled) setTerrainData(null);
+        }
+
+        if (cancelled) return;
+
+        setLoadingProgress(82, `Found ${worldData.buildings.length} buildings, ${worldData.roads.length} roads, ${worldData.trees.length} trees`);
 
         await new Promise((r) => setTimeout(r, 500));
 
         setLoadingProgress(95, 'Building 3D world...');
-        const spawn = findSpawnPosition(worldData, location!.lat, location!.lon);
+        const spawn = findSpawnPosition(worldData, location!.lat, location!.lon, terrainData);
         setWorldData(worldData, spawn.pos, spawn.rot);
 
         await new Promise((r) => setTimeout(r, 300));

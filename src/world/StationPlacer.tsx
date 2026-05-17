@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
 import { Train, Bus } from 'lucide-react';
+import { sampleTerrainHeight } from '../utils/terrain';
 
 function StationMarker({ station }: { station: any }) {
   const isBus = station.tags.highway === 'bus_stop' || station.tags.amenity === 'bus_station';
@@ -66,6 +67,7 @@ export default function StationPlacer() {
   const worldData = useWorldStore((s) => s.worldData);
   const refLat = useWorldStore((s) => s.refLat);
   const refLon = useWorldStore((s) => s.refLon);
+  const terrainData = useWorldStore((s) => s.terrainData);
 
   const stations = useMemo(() => {
     if (!worldData || !worldData.transitStations) return [];
@@ -82,12 +84,13 @@ export default function StationPlacer() {
       if (lat === undefined || lon === undefined) return null;
 
       const { x, z } = projectToLocal(lat, lon, refLat, refLon);
+      const y = sampleTerrainHeight(x, z, terrainData);
       return {
         ...station,
-        position: [x, 0, z] as [number, number, number],
+        position: [x, y, z] as [number, number, number],
       };
     }).filter(Boolean);
-  }, [worldData, refLat, refLon]);
+  }, [worldData, refLat, refLon, terrainData]);
 
   return (
     <group name="stations">

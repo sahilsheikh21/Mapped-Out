@@ -522,6 +522,34 @@ html, body, #root {
   margin-top: 0.25rem;
 }
 
+/* Terrain Debug */
+.hud-terrain-debug {
+  position: absolute;
+  left: 1.5rem;
+  bottom: 2rem;
+  min-width: 170px;
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.hud-terrain-debug-title {
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 /* Controls Hint */
 .hud-controls-hint {
   position: absolute;

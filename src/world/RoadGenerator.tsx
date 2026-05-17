@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
 import { Text } from '@react-three/drei';
+import { sampleTerrainHeight } from '../utils/terrain';
 
 /**
  * Create a ribbon mesh geometry along a polyline with a given width.
@@ -153,6 +154,7 @@ export default function RoadGenerator() {
   const worldData = useWorldStore((s) => s.worldData);
   const refLat = useWorldStore((s) => s.refLat);
   const refLon = useWorldStore((s) => s.refLon);
+  const terrainData = useWorldStore((s) => s.terrainData);
 
   const roads = useMemo(() => {
     if (!worldData) return [];
@@ -162,6 +164,7 @@ export default function RoadGenerator() {
       .map((road) => {
         const points = road.geometry.map((pt) => {
           const { x, z } = projectToLocal(pt.lat, pt.lon, refLat, refLon);
+          const groundY = sampleTerrainHeight(x, z, terrainData);
           
           // Layer road heights to prevent Z-fighting between different road types
           let height = 0.02;
@@ -169,7 +172,7 @@ export default function RoadGenerator() {
           else if (road.roadType === 'primary') height = 0.04;
           else if (road.roadType === 'secondary') height = 0.03;
           
-          return new THREE.Vector3(x, height, z);
+          return new THREE.Vector3(x, groundY + height, z);
         });
 
         let midPoint: THREE.Vector3 | undefined;
@@ -196,7 +199,7 @@ export default function RoadGenerator() {
           rotY,
         };
       });
-  }, [worldData, refLat, refLon]);
+  }, [worldData, refLat, refLon, terrainData]);
 
   return (
     <group name="roads">

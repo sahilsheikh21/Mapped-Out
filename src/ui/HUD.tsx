@@ -5,8 +5,31 @@
 import { useEffect, useState } from 'react';
 import { useVehicleStore } from '../stores/vehicleStore';
 import { useGameStore } from '../stores/gameStore';
+import { useWorldStore } from '../stores/worldStore';
 import { msToKmh } from '../utils/math';
+import { sampleTerrainHeight } from '../utils/terrain';
 import { MapPin, Camera, Sun, ArrowLeft, Mouse } from 'lucide-react';
+
+function TerrainDebugOverlay() {
+  const position = useVehicleStore((s) => s.position);
+  const terrainData = useWorldStore((s) => s.terrainData);
+
+  if (!terrainData) return null;
+
+  const groundY = sampleTerrainHeight(position[0], position[2], terrainData);
+  const clearance = position[1] - groundY;
+  const absoluteGround = terrainData.baselineElevation + groundY;
+
+  return (
+    <div className="hud-terrain-debug">
+      <div className="hud-terrain-debug-title">Terrain Debug</div>
+      <div>Ground Y: {groundY.toFixed(2)} m</div>
+      <div>Ground ASL: {absoluteGround.toFixed(1)} m</div>
+      <div>Car Y: {position[1].toFixed(2)} m</div>
+      <div>Clearance: {clearance.toFixed(2)} m</div>
+    </div>
+  );
+}
 
 export default function HUD() {
   const speed = useVehicleStore((s) => s.speed);
@@ -96,6 +119,8 @@ export default function HUD() {
         <div className="hud-speedo-value">{speedKmh}</div>
         <div className="hud-speedo-unit">KM/H</div>
       </div>
+
+      <TerrainDebugOverlay />
 
       {/* Controls Hint */}
       <div className="hud-controls-hint">

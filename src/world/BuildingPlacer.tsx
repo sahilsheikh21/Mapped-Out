@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
+import { sampleTerrainHeight } from '../utils/terrain';
 import {
   getBuildingStyle,
   getFacadeTextures,
@@ -118,6 +119,7 @@ function useBuildingInstances(): BuildingInstance[] {
   const worldData = useWorldStore((s) => s.worldData);
   const refLat = useWorldStore((s) => s.refLat);
   const refLon = useWorldStore((s) => s.refLon);
+  const terrainData = useWorldStore((s) => s.terrainData);
 
   return useMemo(() => {
     if (!worldData) return [];
@@ -149,9 +151,10 @@ function useBuildingInstances(): BuildingInstance[] {
         `building-${building.id}`
       );
       const wallHeight = Math.max(1.2, totalHeight - style.roofHeight);
+      const groundY = sampleTerrainHeight(centroid.x, centroid.z, terrainData);
 
       instances.push({
-        position: [centroid.x, 0, centroid.z],
+        position: [centroid.x, groundY, centroid.z],
         shapePoints,
         wallHeight,
         colliderSize: [
@@ -168,7 +171,7 @@ function useBuildingInstances(): BuildingInstance[] {
     }
 
     return instances;
-  }, [worldData, refLat, refLon]);
+  }, [worldData, refLat, refLon, terrainData]);
 }
 
 /**

@@ -46,6 +46,19 @@ export interface WorldData {
   bbox: [number, number, number, number]; // [south, west, north, east]
 }
 
+export interface TerrainData {
+  rows: number;
+  cols: number;
+  heights: number[]; // row-major, relative meters (baseline centered near selected location)
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  baselineElevation: number; // meters above sea level at the grid center
+  minRelativeHeight: number;
+  maxRelativeHeight: number;
+}
+
 interface WorldState {
   // ─── Reference Point (center of the world) ─
   refLat: number;
@@ -53,6 +66,7 @@ interface WorldState {
 
   // ─── World Data ─────────────────────────────
   worldData: WorldData | null;
+  terrainData: TerrainData | null;
   isLoading: boolean;
   spawnPosition: [number, number, number];
   spawnRotation: number;
@@ -60,6 +74,7 @@ interface WorldState {
   // ─── Actions ────────────────────────────────
   setRefPoint: (lat: number, lon: number) => void;
   setWorldData: (data: WorldData, spawnPos?: [number, number, number], spawnRot?: number) => void;
+  setTerrainData: (data: TerrainData | null) => void;
   setLoading: (loading: boolean) => void;
   clearWorld: () => void;
 }
@@ -68,12 +83,14 @@ export const useWorldStore = create<WorldState>((set) => ({
   refLat: 0,
   refLon: 0,
   worldData: null,
+  terrainData: null,
   isLoading: false,
   spawnPosition: [0, 1.5, 0],
   spawnRotation: 0,
 
   setRefPoint: (lat, lon) => set({ refLat: lat, refLon: lon }),
   setWorldData: (data, spawnPos = [0, 1.5, 0], spawnRot = 0) => set({ worldData: data, isLoading: false, spawnPosition: spawnPos, spawnRotation: spawnRot }),
+  setTerrainData: (data) => set({ terrainData: data }),
   setLoading: (loading) => set({ isLoading: loading }),
-  clearWorld: () => set({ worldData: null, isLoading: false, spawnPosition: [0, 1.5, 0], spawnRotation: 0 }),
+  clearWorld: () => set({ worldData: null, terrainData: null, isLoading: false, spawnPosition: [0, 1.5, 0], spawnRotation: 0 }),
 }));

@@ -21,6 +21,9 @@ export const LOAD_RADIUS = 1; // load tiles within this radius (0 = center only,
 export const UNLOAD_RADIUS = 3; // unload tiles beyond this radius
 export const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 export const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search';
+export const ELEVATION_API_URL = 'https://api.open-meteo.com/v1/elevation';
+export const TERRAIN_GRID_ROWS = 33;
+export const TERRAIN_GRID_COLS = 33;
 
 // ─── Vehicle Physics (Rapier DynamicRayCastVehicleController) ─
 // Ported from car-physics-main reference (CarPhysics.ts + CarWheel.ts).
