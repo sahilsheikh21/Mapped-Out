@@ -9,12 +9,16 @@
  * - Vehicle jitter from overlapping colliders at intersections
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { RigidBody, MeshCollider } from '@react-three/rapier';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
 import { Text } from '@react-three/drei';
 import { sampleTerrainHeight } from '../utils/terrain';
+
+const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
 
 /**
  * Create a ribbon mesh geometry along a polyline with a given width.
@@ -193,6 +197,7 @@ export default function RoadGenerator() {
           points,
           width: road.widthMeters,
           type: road.roadType,
+          drivable: !NON_DRIVABLE_ROADS.has(road.roadType),
           id: road.id,
           name: road.tags?.name || null,
           midPoint,
@@ -201,11 +206,48 @@ export default function RoadGenerator() {
       });
   }, [worldData, refLat, refLon, terrainData]);
 
+  const roadColliderGeometry = useMemo(() => {
+    const colliderPieces: THREE.BufferGeometry[] = [];
+
+    for (const road of roads) {
+      if (!road.drivable || road.points.length < 2) continue;
+      const colliderWidth = Math.max(road.width * 0.95, 3);
+      const piece = createRoadRibbon(road.points, colliderWidth);
+      // Lift collider slightly above terrain so vehicle raycasts prefer road surface.
+      piece.translate(0, 0.015, 0);
+      colliderPieces.push(piece);
+    }
+
+    if (colliderPieces.length === 0) return null;
+
+    const merged = mergeGeometries(colliderPieces, false);
+    for (const piece of colliderPieces) piece.dispose();
+
+    if (!merged) return null;
+    merged.computeVertexNormals();
+    return merged;
+  }, [roads]);
+
+  useEffect(() => {
+    return () => {
+      roadColliderGeometry?.dispose();
+    };
+  }, [roadColliderGeometry]);
+
   return (
     <group name="roads">
       {roads.map((road) => (
         <RoadMesh key={`road-${road.id}`} road={road} />
       ))}
+      {roadColliderGeometry && (
+        <RigidBody type="fixed" colliders={false} friction={1.2} restitution={0}>
+          <MeshCollider type="trimesh">
+            <mesh geometry={roadColliderGeometry} visible={false}>
+              <meshBasicMaterial visible={false} />
+            </mesh>
+          </MeshCollider>
+        </RigidBody>
+      )}
     </group>
   );
 }
