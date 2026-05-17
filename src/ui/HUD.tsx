@@ -9,6 +9,7 @@ import { useWorldStore } from '../stores/worldStore';
 import { msToKmh } from '../utils/math';
 import { sampleTerrainHeight } from '../utils/terrain';
 import { MapPin, Camera, Sun, ArrowLeft, Mouse } from 'lucide-react';
+import MiniMap from './MiniMap';
 
 function TerrainDebugOverlay() {
   const position = useVehicleStore((s) => s.position);
@@ -120,6 +121,7 @@ export default function HUD() {
         <div className="hud-speedo-unit">KM/H</div>
       </div>
 
+      <MiniMap />
       <TerrainDebugOverlay />
 
       {/* Controls Hint */}

@@ -522,11 +522,59 @@ html, body, #root {
   margin-top: 0.25rem;
 }
 
+/* Mini Map */
+.hud-minimap {
+  position: absolute;
+  left: 1.5rem;
+  bottom: 2rem;
+  width: 240px;
+  height: 240px;
+  padding: 0.45rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.hud-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 0.67rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 0.1rem;
+}
+
+.hud-minimap-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 10px rgba(0, 214, 143, 0.7);
+}
+
+.hud-minimap-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius-sm) - 1px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0e141d;
+  display: block;
+}
+
 /* Terrain Debug */
 .hud-terrain-debug {
   position: absolute;
   left: 1.5rem;
-  bottom: 2rem;
+  bottom: calc(2rem + 252px);
   min-width: 170px;
   padding: 0.7rem 0.9rem;
   background: var(--bg-glass);
@@ -604,6 +652,33 @@ html, body, #root {
 @keyframes pointer-hint-pulse {
   0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
   50% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.97); }
+}
+
+@media (max-width: 900px) {
+  .hud-minimap {
+    left: 1rem;
+    bottom: 1rem;
+    width: 190px;
+    height: 190px;
+  }
+
+  .hud-terrain-debug {
+    left: 1rem;
+    bottom: calc(1rem + 202px);
+    min-width: 150px;
+    font-size: 0.68rem;
+  }
+
+  .hud-speedo {
+    right: 1rem;
+    bottom: 1rem;
+    padding: 1rem 1.4rem;
+    min-width: 100px;
+  }
+
+  .hud-speedo-value {
+    font-size: 2.1rem;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
