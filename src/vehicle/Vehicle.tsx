@@ -161,11 +161,13 @@ export default function Vehicle() {
     const bwd = (keys['KeyS'] || keys['ArrowDown']) ? 1 : 0;
     const lft = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0;
     const rgt = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
-    const brk = keys['Space'] ? 1 : 0;
+    const manualBrake = keys['Space'] ? 1 : 0;
 
     // Standard input mapping: +1 = forward, +1 = turn right
     const accelInput = clamp(fwd - bwd, -1, 1);
     const steerInput = clamp(rgt - lft, -1, 1);
+    const cornerBrakeAssist = fwd === 1 && bwd === 0 && steerInput !== 0;
+    const brk = (manualBrake || cornerBrakeAssist) ? 1 : 0;
 
     // Actual physics velocity for accurate speed checks (avoids raycast bugs)
     const lv = body.linvel();
@@ -267,11 +269,19 @@ export default function Vehicle() {
     if (telemetryCounter.current % 3 === 0) {
       setSpeed(Math.hypot(lv.x, lv.z));
       setSteerAngle(steerRef.current * CAR_MAX_STEER_RAD);
+      const fwd = (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0;
+      const bwd = (keys['KeyS'] || keys['ArrowDown']) ? 1 : 0;
+      const lft = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0;
+      const rgt = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
+      const steerInput = clamp(rgt - lft, -1, 1);
+      const cornerBrakeAssist = fwd === 1 && bwd === 0 && steerInput !== 0;
+      const brakeActive = !!keys['Space'] || cornerBrakeAssist;
+
       setInput({
-        throttle: (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0,
-        brake: keys['Space'] ? 1 : 0,
-        steering: ((keys['KeyD'] || keys['ArrowRight']) ? 1 : 0) - ((keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0),
-        handbrake: !!keys['Space'],
+        throttle: fwd,
+        brake: brakeActive ? 1 : 0,
+        steering: steerInput,
+        handbrake: brakeActive,
       });
     }
 
