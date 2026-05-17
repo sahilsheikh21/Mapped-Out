@@ -276,7 +276,9 @@ export default function Vehicle() {
     if (wheelsRef.current[1]) wheelsRef.current[1].rotation.y = steerAngle;
     
     // Rolling animation
-    const rollSpeed = Math.hypot(lv.x, lv.z) * 0.25;
+    const planarSpeed = Math.hypot(lv.x, lv.z);
+    const speed01 = clamp(planarSpeed / CAR_MAX_SPEED, 0, 1);
+    const rollSpeed = planarSpeed * 0.25;
     wheelsRef.current.forEach((wheel) => {
       if (wheel) {
         wheel.rotation.x += lv.z > 0 ? rollSpeed : -rollSpeed;

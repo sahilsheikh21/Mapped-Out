@@ -269,7 +269,6 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
               outlineColor="#000000"
               anchorX="center"
               anchorY="middle"
-              depthTest={false}
               characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
             >
               {instance.name}
