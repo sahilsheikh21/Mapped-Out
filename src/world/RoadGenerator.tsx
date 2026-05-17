@@ -1,12 +1,5 @@
 /**
- * RoadGenerator: Renders roads as flat ribbon meshes along OSM road polylines.
- * 
- * Roads are VISUAL ONLY — no individual physics colliders.
- * The car drives on the GroundPlane's single CuboidCollider at Y=0.
- * This avoids hundreds of trimesh colliders that cause:
- * - Massive physics overhead (each trimesh = expensive broadphase entry)
- * - Collision fighting between road surface and ground plane
- * - Vehicle jitter from overlapping colliders at intersections
+ * RoadGenerator: Renders OSM roads and builds one merged road collider mesh.
  */
 
 import { useEffect, useMemo } from 'react';
@@ -19,6 +12,54 @@ import { Text } from '@react-three/drei';
 import { sampleTerrainHeight } from '../utils/terrain';
 
 const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
+
+function parseLayer(tags: Record<string, string> | undefined): number {
+  if (!tags?.layer) return 0;
+  const parsed = Number.parseInt(tags.layer, 10);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(-5, Math.min(5, parsed));
+}
+
+function isTruthyStructureTag(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized !== '' && normalized !== 'no' && normalized !== 'false' && normalized !== '0';
+}
+
+function structureProfile(t: number): number {
+  // Smoothly ramp from 0 at both ends to 1 around the center.
+  const s = Math.sin(Math.PI * t);
+  return s * s;
+}
+
+function getStructureYOffset(
+  tags: Record<string, string> | undefined,
+  t: number,
+  pointCount: number
+): number {
+  const layer = parseLayer(tags);
+  const profile = pointCount > 2 ? structureProfile(t) : 1;
+  const hasBridge = isTruthyStructureTag(tags?.bridge);
+  const hasTunnel = isTruthyStructureTag(tags?.tunnel);
+
+  const layerLift = layer * 2.0;
+
+  if (hasBridge) {
+    const bridgeLift = 4.0 + Math.max(0, layer - 1) * 1.5;
+    return layerLift + bridgeLift * profile;
+  }
+
+  if (hasTunnel) {
+    const tunnelDrop = 3.0 + Math.max(0, -layer - 1) * 1.0;
+    return layerLift - tunnelDrop * profile;
+  }
+
+  if (layer !== 0) {
+    return layerLift * profile;
+  }
+
+  return 0;
+}
 
 /**
  * Create a ribbon mesh geometry along a polyline with a given width.
@@ -87,7 +128,11 @@ function createRoadRibbon(
 /**
  * Road color by type (matching Kenney's aesthetic palette).
  */
-function roadColor(roadType: string): string {
+function roadColor(roadType: string, isStructure: boolean): string {
+  if (isStructure) {
+    return '#4a4f56';
+  }
+
   switch (roadType) {
     case 'motorway':
     case 'trunk':
@@ -114,16 +159,40 @@ function roadColor(roadType: string): string {
 /**
  * Single road component — visual only, no physics collider.
  */
-function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
+function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; isStructure: boolean; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
   const geometry = useMemo(
     () => createRoadRibbon(road.points, road.width),
     [road.points, road.width]
   );
 
-  const color = roadColor(road.type);
+  const underDeckGeometry = useMemo(() => {
+    if (!road.isStructure) return null;
+    return createRoadRibbon(road.points, road.width + 1.1);
+  }, [road.isStructure, road.points, road.width]);
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      underDeckGeometry?.dispose();
+    };
+  }, [geometry, underDeckGeometry]);
+
+  const color = roadColor(road.type, road.isStructure);
 
   return (
     <group>
+      {road.isStructure && underDeckGeometry && (
+        <mesh geometry={underDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
+          <meshStandardMaterial
+            color="#373c43"
+            roughness={0.95}
+            metalness={0.03}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+          />
+        </mesh>
+      )}
       <mesh geometry={geometry} receiveShadow>
         <meshStandardMaterial
           color={color}
@@ -136,7 +205,7 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
       </mesh>
       {road.name && road.midPoint && (
         <Text
-          position={[road.midPoint.x, 0.05, road.midPoint.z]}
+          position={[road.midPoint.x, road.midPoint.y + 0.05, road.midPoint.z]}
           rotation={[-Math.PI / 2, 0, road.rotY || 0]}
           fontSize={road.width * 0.4}
           color="#ffffff"
@@ -166,9 +235,15 @@ export default function RoadGenerator() {
     return worldData.roads
       .filter((r) => r.geometry && r.geometry.length >= 2)
       .map((road) => {
-        const points = road.geometry.map((pt) => {
+        const pointCount = road.geometry.length;
+        const hasBridge = isTruthyStructureTag(road.tags?.bridge);
+        const layer = parseLayer(road.tags);
+        const isStructure = hasBridge || layer > 0;
+        const points = road.geometry.map((pt, index) => {
           const { x, z } = projectToLocal(pt.lat, pt.lon, refLat, refLon);
           const groundY = sampleTerrainHeight(x, z, terrainData);
+          const t = pointCount <= 1 ? 0 : index / (pointCount - 1);
+          const structureYOffset = getStructureYOffset(road.tags, t, pointCount);
           
           // Layer road heights to prevent Z-fighting between different road types
           let height = 0.02;
@@ -176,7 +251,7 @@ export default function RoadGenerator() {
           else if (road.roadType === 'primary') height = 0.04;
           else if (road.roadType === 'secondary') height = 0.03;
           
-          return new THREE.Vector3(x, groundY + height, z);
+          return new THREE.Vector3(x, groundY + structureYOffset + height, z);
         });
 
         let midPoint: THREE.Vector3 | undefined;
@@ -193,10 +268,13 @@ export default function RoadGenerator() {
           }
         }
 
+        const visualWidth = road.widthMeters * (isStructure ? 1.15 : 1);
+
         return {
           points,
-          width: road.widthMeters,
+          width: visualWidth,
           type: road.roadType,
+          isStructure,
           drivable: !NON_DRIVABLE_ROADS.has(road.roadType),
           id: road.id,
           name: road.tags?.name || null,
