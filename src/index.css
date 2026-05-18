@@ -327,6 +327,40 @@ html, body, #root {
   box-shadow: none;
 }
 
+.lp-github-link {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1300;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 12, 12, 0.9);
+  border: 1px solid var(--border);
+  color: #ffffff;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.lp-github-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+  background: rgba(20, 20, 20, 0.95);
+}
+
+.lp-github-link:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.lp-github-icon {
+  width: 22px;
+  height: 22px;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    LOADING SCREEN
    ═══════════════════════════════════════════════════════════════ */
@@ -689,6 +723,18 @@ html, body, #root {
 
   .hud-speedo-value {
     font-size: 2.1rem;
+  }
+
+  .lp-github-link {
+    right: 1rem;
+    bottom: 1rem;
+    width: 40px;
+    height: 40px;
+  }
+
+  .lp-github-icon {
+    width: 20px;
+    height: 20px;
   }
 }
 
