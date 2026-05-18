@@ -1,22 +1,20 @@
 /**
- * LocationPicker: Premium dark-mode UI for selecting a location to drive in.
- * Features a Leaflet map + search bar + "Use My Location" button.
+ * LocationPicker: map-based location selection with optional custom box mode.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Rectangle, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { geocodeAddress } from '../api/nominatim';
 import { useGameStore } from '../stores/gameStore';
-import { Search, MapPin, Navigation, Loader2, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Navigation, Loader2, ChevronRight, Square } from 'lucide-react';
+import { haversineDistance } from '../utils/geo';
 
-// Fix Leaflet default icon issue
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// @ts-ignore
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -24,10 +22,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lon: number) => void }) {
+function MapInteractionHandler({
+  onMapClick,
+  onMapMove,
+}: {
+  onMapClick: (lat: number, lon: number) => void;
+  onMapMove: (lat: number, lon: number) => void;
+}) {
   useMapEvents({
     click(e) {
       onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+    mousemove(e) {
+      onMapMove(e.latlng.lat, e.latlng.lng);
     },
   });
   return null;
@@ -44,6 +51,10 @@ function FlyToLocation({ lat, lon }: { lat: number; lon: number }) {
 export default function LocationPicker() {
   const setLocation = useGameStore((s) => s.setLocation);
   const setPhase = useGameStore((s) => s.setPhase);
+  const selectionMode = useGameStore((s) => s.selectionMode);
+  const setSelectionMode = useGameStore((s) => s.setSelectionMode);
+  const customBBox = useGameStore((s) => s.customBBox);
+  const setCustomBBox = useGameStore((s) => s.setCustomBBox);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -51,13 +62,34 @@ export default function LocationPicker() {
   const [selectedPos, setSelectedPos] = useState<{ lat: number; lon: number } | null>(null);
   const [locationName, setLocationName] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+
+  const [boxStart, setBoxStart] = useState<{ lat: number; lon: number } | null>(null);
+  const [boxEnd, setBoxEnd] = useState<{ lat: number; lon: number } | null>(null);
+  const [boxPreview, setBoxPreview] = useState<{ lat: number; lon: number } | null>(null);
+
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resolveBBox = (a: { lat: number; lon: number }, b: { lat: number; lon: number }): [number, number, number, number] => {
+    const south = Math.min(a.lat, b.lat);
+    const north = Math.max(a.lat, b.lat);
+    const west = Math.min(a.lon, b.lon);
+    const east = Math.max(a.lon, b.lon);
+    return [south, west, north, east];
+  };
+
+  const currentBoxBounds = (() => {
+    const end = boxEnd ?? boxPreview;
+    if (!boxStart || !end) return null;
+    const [south, west, north, east] = resolveBBox(boxStart, end);
+    return [[south, west], [north, east]] as [[number, number], [number, number]];
+  })();
 
   const handleSearch = useCallback(async (query: string) => {
     if (query.length < 3) {
       setSearchResults([]);
       return;
     }
+
     setIsSearching(true);
     try {
       const results = await geocodeAddress(query);
@@ -74,9 +106,17 @@ export default function LocationPicker() {
     searchTimeout.current = setTimeout(() => handleSearch(value), 500);
   };
 
+  const clearBoxDraft = () => {
+    setBoxStart(null);
+    setBoxEnd(null);
+    setBoxPreview(null);
+    setCustomBBox(null);
+  };
+
   const handleSelectResult = (result: any) => {
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
+    clearBoxDraft();
     setSelectedPos({ lat, lon });
     setLocationName(result.display_name.split(',').slice(0, 3).join(', '));
     setSearchResults([]);
@@ -84,8 +124,42 @@ export default function LocationPicker() {
   };
 
   const handleMapClick = (lat: number, lon: number) => {
+    if (selectionMode === 'box') {
+      if (!boxStart || boxEnd) {
+        setBoxStart({ lat, lon });
+        setBoxEnd(null);
+        setBoxPreview(null);
+        setCustomBBox(null);
+        setSelectedPos({ lat, lon });
+        setLocationName('Box start selected. Click opposite corner.');
+        return;
+      }
+
+      const end = { lat, lon };
+      const bbox = resolveBBox(boxStart, end);
+      const centerLat = (bbox[0] + bbox[2]) / 2;
+      const centerLon = (bbox[1] + bbox[3]) / 2;
+
+      const widthKm = haversineDistance(bbox[0], bbox[1], bbox[0], bbox[3]) / 1000;
+      const heightKm = haversineDistance(bbox[0], bbox[1], bbox[2], bbox[1]) / 1000;
+
+      setBoxEnd(end);
+      setBoxPreview(null);
+      setCustomBBox(bbox);
+      setSelectedPos({ lat: centerLat, lon: centerLon });
+      setLocationName(`Custom Box ${widthKm.toFixed(2)} × ${heightKm.toFixed(2)} km`);
+      return;
+    }
+
+    clearBoxDraft();
     setSelectedPos({ lat, lon });
     setLocationName(`${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
+  };
+
+  const handleMapMove = (lat: number, lon: number) => {
+    if (selectionMode !== 'box') return;
+    if (!boxStart || boxEnd) return;
+    setBoxPreview({ lat, lon });
   };
 
   const handleUseMyLocation = () => {
@@ -93,6 +167,7 @@ export default function LocationPicker() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
+        clearBoxDraft();
         setSelectedPos({ lat: latitude, lon: longitude });
         setLocationName('My Location');
         setIsLocating(false);
@@ -106,15 +181,32 @@ export default function LocationPicker() {
     );
   };
 
+  const toggleSelectionMode = () => {
+    if (selectionMode === 'radius') {
+      setSelectionMode('box');
+      clearBoxDraft();
+      setLocationName('Box mode: click first corner, then opposite corner.');
+      return;
+    }
+
+    setSelectionMode('radius');
+    clearBoxDraft();
+    if (selectedPos) {
+      setLocationName(`${selectedPos.lat.toFixed(4)}°, ${selectedPos.lon.toFixed(4)}°`);
+    }
+  };
+
   const handleStartDriving = () => {
     if (!selectedPos) return;
+    if (selectionMode === 'box' && !customBBox) return;
     setLocation(selectedPos.lat, selectedPos.lon, locationName);
     setPhase('loading');
   };
 
+  const hasValidSelection = selectionMode === 'box' ? !!(selectedPos && customBBox) : !!selectedPos;
+
   return (
     <div className="location-picker">
-      {/* Hero Header */}
       <div className="lp-header">
         <div className="lp-logo">
           <h1>Mapped<span className="accent">Out</span></h1>
@@ -122,7 +214,6 @@ export default function LocationPicker() {
         <p className="lp-subtitle">Drive anywhere in the world. Pick a location and explore.</p>
       </div>
 
-      {/* Search Bar */}
       <div className="lp-search-container">
         <div className="lp-search-bar">
           <Search size={18} className="lp-search-icon" />
@@ -136,7 +227,6 @@ export default function LocationPicker() {
           {isSearching && <Loader2 size={18} className="lp-spinner" />}
         </div>
 
-        {/* Search Results Dropdown */}
         {searchResults.length > 0 && (
           <div className="lp-search-results">
             {searchResults.map((result) => (
@@ -151,9 +241,9 @@ export default function LocationPicker() {
             ))}
           </div>
         )}
+
       </div>
 
-      {/* Map */}
       <div className="lp-map-wrapper">
         <MapContainer
           center={[40.7128, -74.006]}
@@ -165,7 +255,13 @@ export default function LocationPicker() {
             attribution='&copy; <a href="https://www.openstreetmap.org/">OSM</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
-          <MapClickHandler onMapClick={handleMapClick} />
+          <MapInteractionHandler onMapClick={handleMapClick} onMapMove={handleMapMove} />
+          {currentBoxBounds && selectionMode === 'box' && (
+            <Rectangle
+              bounds={currentBoxBounds}
+              pathOptions={{ color: '#ffffff', weight: 2, dashArray: '6 6', fillOpacity: 0.08 }}
+            />
+          )}
           {selectedPos && (
             <>
               <Marker position={[selectedPos.lat, selectedPos.lon]} />
@@ -174,7 +270,17 @@ export default function LocationPicker() {
           )}
         </MapContainer>
 
-        {/* Map overlay buttons */}
+        <button
+          className={`lp-map-toggle ${selectionMode === 'box' ? 'active' : ''}`}
+          onClick={toggleSelectionMode}
+          type="button"
+          aria-pressed={selectionMode === 'box'}
+          title={selectionMode === 'box' ? 'Box mode: click 2 corners' : 'Radius mode: 400m'}
+        >
+          <Square size={14} />
+          <span>{selectionMode === 'box' ? 'Box' : 'Radius'}</span>
+        </button>
+
         <button
           className="lp-my-location-btn"
           onClick={handleUseMyLocation}
@@ -185,7 +291,6 @@ export default function LocationPicker() {
         </button>
       </div>
 
-      {/* Start Button */}
       <div className="lp-footer">
         {selectedPos && (
           <div className="lp-selected-info">
@@ -196,7 +301,7 @@ export default function LocationPicker() {
         <button
           className="lp-start-btn"
           onClick={handleStartDriving}
-          disabled={!selectedPos}
+          disabled={!hasValidSelection}
         >
           <span>Start Driving</span>
           <ChevronRight size={20} />

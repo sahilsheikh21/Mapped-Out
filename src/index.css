@@ -238,6 +238,47 @@ html, body, #root {
   background: var(--bg-secondary);
 }
 
+.lp-map-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lp-map-toggle:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
+}
+
+.lp-map-toggle.active {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 720px) {
+  .lp-map-toggle span {
+    display: none;
+  }
+
+  .lp-map-toggle {
+    padding: 0.5rem;
+  }
+}
+
 .lp-my-location-btn {
   position: absolute;
   bottom: 1rem;

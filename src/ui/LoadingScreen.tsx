@@ -115,6 +115,9 @@ function findSpawnPosition(
 export default function LoadingScreen() {
   const location = useGameStore((s) => s.location);
   const locationName = useGameStore((s) => s.locationName);
+  const queryRadiusMeters = useGameStore((s) => s.queryRadiusMeters);
+  const selectionMode = useGameStore((s) => s.selectionMode);
+  const customBBox = useGameStore((s) => s.customBBox);
   const loadingProgress = useGameStore((s) => s.loadingProgress);
   const loadingMessage = useGameStore((s) => s.loadingMessage);
   const setPhase = useGameStore((s) => s.setPhase);
@@ -132,7 +135,9 @@ export default function LoadingScreen() {
     async function loadWorld() {
       try {
         setLoadingProgress(5, 'Calculating area bounds...');
-        const bbox = getBBox(location!.lat, location!.lon, 400);
+        const bbox = (selectionMode === 'box' && customBBox)
+          ? customBBox
+          : getBBox(location!.lat, location!.lon, queryRadiusMeters);
 
         setLoadingProgress(10, 'Setting reference point...');
         setRefPoint(location!.lat, location!.lon);
@@ -223,7 +228,7 @@ export default function LoadingScreen() {
 
     loadWorld();
     return () => { cancelled = true; };
-  }, [location]);
+  }, [location, queryRadiusMeters, selectionMode, customBBox]);
 
   return (
     <div className="loading-screen">
