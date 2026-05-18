@@ -19,9 +19,11 @@ export const DEFAULT_BUILDING_LEVELS = 3;
 export const TILE_SIZE = 200; // meters per tile
 export const LOAD_RADIUS = 1; // load tiles within this radius (0 = center only, 1 = 3×3)
 export const UNLOAD_RADIUS = 3; // unload tiles beyond this radius
-export const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
-export const NOMINATIM_API_URL = 'https://nominatim.openstreetmap.org/search';
-export const ELEVATION_API_URL = 'https://api.open-meteo.com/v1/elevation';
+// Use same-origin API paths. In production (Vercel) these are serverless
+// functions. In local dev, Vite proxies these routes to the upstream APIs.
+export const OVERPASS_API_URL = '/api/overpass';
+export const NOMINATIM_API_URL = '/api/nominatim';
+export const ELEVATION_API_URL = '/api/elevation';
 export const TERRAIN_GRID_ROWS = 33;
 export const TERRAIN_GRID_COLS = 33;
 
