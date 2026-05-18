@@ -147,16 +147,27 @@ html, body, #root {
 
 .lp-search-input {
   flex: 1;
-  background: none;
+  background-color: transparent !important;
   border: none;
   color: var(--text-primary);
   font-size: 0.95rem;
   font-family: var(--font-sans);
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
 }
 
 .lp-search-input::placeholder {
   color: var(--text-muted);
+}
+
+.lp-search-input:-webkit-autofill,
+.lp-search-input:-webkit-autofill:hover,
+.lp-search-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--bg-card) inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .lp-spinner {
