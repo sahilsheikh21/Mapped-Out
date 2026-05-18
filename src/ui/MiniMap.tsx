@@ -534,10 +534,6 @@ export default function MiniMap() {
 
   return (
     <div className="hud-minimap" aria-label="Minimap">
-      <div className="hud-minimap-header">
-        <span>Mini Map</span>
-        <span className="hud-minimap-dot" />
-      </div>
       <canvas ref={canvasRef} className="hud-minimap-canvas" />
     </div>
   );
