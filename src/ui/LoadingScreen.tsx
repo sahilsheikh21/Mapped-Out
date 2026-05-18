@@ -3,7 +3,6 @@
  */
 
 import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { fetchOSMData } from '../api/overpass';
@@ -114,6 +113,7 @@ function findSpawnPosition(
 
 export default function LoadingScreen() {
   const location = useGameStore((s) => s.location);
+  const locationName = useGameStore((s) => s.locationName);
   const loadingProgress = useGameStore((s) => s.loadingProgress);
   const loadingMessage = useGameStore((s) => s.loadingMessage);
   const setPhase = useGameStore((s) => s.setPhase);
@@ -200,63 +200,32 @@ export default function LoadingScreen() {
   }, [location]);
 
   return (
-    <div className="m-0 p-0 overflow-hidden text-white flex items-center justify-center min-h-screen relative select-none bg-[#0c0e12]" style={{ fontFamily: "'Montserrat', sans-serif", width: '100vw', height: '100vh', position: 'absolute', top: 0, left: 0, zIndex: 50 }}>
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;1,700&display=swap');
-          .glow-red { box-shadow: 0 0 10px 2px rgba(255, 51, 51, 0.5); }
-          .text-glow-red { text-shadow: 0 0 5px rgba(255, 51, 51, 0.5); }
-          @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 10px 2px rgba(255, 51, 51, 0.4); }
-            50% { box-shadow: 0 0 15px 4px rgba(255, 51, 51, 0.7); }
-          }
-          .loading-fill-animated { animation: pulse-glow 2s infinite; }
-        `}
-      </style>
-      
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img alt="Minimalist dark street map background" className="w-full h-full object-cover opacity-90" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkBZw4Muk6EjnkI0mB-y3RKmkfqiEXcb5Ao61ZPYQxhZRX8tWBwvuJuY7cjuNs1SxJpd4FMkI6PmGX58VClpJO3QpiEBsse2CjMQXQTGCxUgQdosCTkbZSq9XaVQsvN0SLLzQ_k5V06UW5JA6p4ACM0nmS2GAA5xXa5FriwnPWIdZg_LGYi-opFojVtDB2WKBZpkakhxNWYmMpwJgB5OS_Ppt75PA8z7LHdSvwsxBvIbU6hH-yv2PivwdxkMaes1kWgPUyHV2a7Fa_"/>
-        <div className="absolute inset-0 bg-black/40"></div>
-      </div>
-      
-      {/* Main Content */}
-      <main className="relative z-10 w-full max-w-4xl px-6 flex flex-col items-center mt-[-10vh]">
-        <div className="flex flex-col items-center mb-48">
-          <div className="flex items-center justify-center mb-4 space-x-1">
-            <div className="w-12 h-6 bg-[#e0e0e0] transform -skew-x-[35deg]"></div>
-            <div className="w-2 h-6 bg-transparent"></div>
-            <div className="w-12 h-6 bg-[#e33535] transform -skew-x-[35deg]"></div>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold italic tracking-[0.2em] mb-3 text-gray-100 uppercase">
-            Mapped-Out
-          </h1>
-          <p className="text-[#e33535] text-sm md:text-base tracking-[0.4em] font-semibold">
-            RACE YOUR LINE
-          </p>
+    <div className="loading-screen">
+      <div className="loading-screen-noise" aria-hidden="true" />
+      <main className="loading-shell">
+        <div className="loading-mark" aria-hidden="true">
+          <span className="loading-mark-block" />
+          <span className="loading-mark-gap" />
+          <span className="loading-mark-block loading-mark-block-muted" />
         </div>
-        
-        <div className="w-full max-w-lg absolute bottom-24 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-          <div className="w-full flex items-center gap-4 mb-4">
-            <div className="flex-grow h-[4px] bg-[#222] rounded-full overflow-hidden relative">
-              <div 
-                className="absolute top-0 left-0 h-full bg-[#e33535] loading-fill-animated rounded-full transition-all duration-300"
-                style={{ width: `${loadingProgress}%` }}
-              ></div>
-            </div>
-            <div className="text-[#e33535] font-semibold text-sm w-12 text-right text-glow-red">
-              {Math.round(loadingProgress)}%
-            </div>
-          </div>
 
-          <div className="text-gray-300 text-sm tracking-[0.3em] uppercase font-medium text-center h-4">
-            {loadingMessage || 'Loading...'}
+        <h1 className="loading-brand">MappedOut</h1>
+        <p className="loading-location">
+          {locationName ? `Loading ${locationName}` : 'Loading map data'}
+        </p>
+
+        <div className="loading-progress-row">
+          <div className="loading-progress-track">
+            <div
+              className="loading-progress-fill"
+              style={{ width: `${loadingProgress}%` }}
+            />
           </div>
-          
-          <div className="mt-8 text-gray-500 text-xs tracking-widest uppercase">
-            WASD: Drive | Space: Brake | C: Camera | T: Time
-          </div>
+          <span className="loading-progress-value">{Math.round(loadingProgress)}%</span>
         </div>
+
+        <p className="loading-status">{loadingMessage || 'Preparing world...'}</p>
+        <p className="loading-controls">WASD Drive  |  Space Brake  |  C Camera  |  T Time</p>
       </main>
     </div>
   );
