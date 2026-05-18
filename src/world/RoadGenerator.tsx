@@ -125,6 +125,63 @@ function createRoadRibbon(
   return geo;
 }
 
+function polylineLength(points: THREE.Vector3[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += points[i].distanceTo(points[i - 1]);
+  }
+  return total;
+}
+
+function interpolatePointAlongPolyline(points: THREE.Vector3[], distance: number): THREE.Vector3 {
+  if (points.length === 0) return new THREE.Vector3();
+  if (points.length === 1) return points[0].clone();
+
+  const total = polylineLength(points);
+  const target = Math.max(0, Math.min(total, distance));
+  let traveled = 0;
+
+  for (let i = 1; i < points.length; i += 1) {
+    const segmentLength = points[i].distanceTo(points[i - 1]);
+    if (traveled + segmentLength >= target) {
+      const t = segmentLength > 1e-6 ? (target - traveled) / segmentLength : 0;
+      return new THREE.Vector3().lerpVectors(points[i - 1], points[i], t);
+    }
+    traveled += segmentLength;
+  }
+
+  return points[points.length - 1].clone();
+}
+
+function createDashedCenterGeometry(points: THREE.Vector3[]): THREE.BufferGeometry | null {
+  const total = polylineLength(points);
+  if (total < 8) return null;
+
+  const dashLength = 4.2;
+  const gapLength = 3.4;
+  const lineWidth = 0.2;
+  const pieces: THREE.BufferGeometry[] = [];
+
+  let cursor = 2;
+  while (cursor < total - 2) {
+    const start = cursor;
+    const end = Math.min(total - 1, start + dashLength);
+
+    const p1 = interpolatePointAlongPolyline(points, start);
+    const p2 = interpolatePointAlongPolyline(points, end);
+    if (p1.distanceToSquared(p2) > 0.08) {
+      pieces.push(createRoadRibbon([p1, p2], lineWidth));
+    }
+
+    cursor = end + gapLength;
+  }
+
+  if (pieces.length === 0) return null;
+  const merged = mergeGeometries(pieces, false);
+  for (const piece of pieces) piece.dispose();
+  return merged || null;
+}
+
 /**
  * Road color by type (matching Kenney's aesthetic palette).
  */
@@ -159,11 +216,18 @@ function roadColor(roadType: string, isStructure: boolean): string {
 /**
  * Single road component — visual only, no physics collider.
  */
-function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; isStructure: boolean; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
+function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; isStructure: boolean; drivable: boolean; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
   const geometry = useMemo(
     () => createRoadRibbon(road.points, road.width),
     [road.points, road.width]
   );
+
+  const centerStripeGeometry = useMemo(() => {
+    if (!road.drivable || road.isStructure) return null;
+    if (road.type === 'service' || road.type === 'living_street') return null;
+    if (road.width < 6) return null;
+    return createDashedCenterGeometry(road.points);
+  }, [road.drivable, road.isStructure, road.type, road.width, road.points]);
 
   const underDeckGeometry = useMemo(() => {
     if (!road.isStructure) return null;
@@ -173,9 +237,10 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
   useEffect(() => {
     return () => {
       geometry.dispose();
+      centerStripeGeometry?.dispose();
       underDeckGeometry?.dispose();
     };
-  }, [geometry, underDeckGeometry]);
+  }, [geometry, centerStripeGeometry, underDeckGeometry]);
 
   const color = roadColor(road.type, road.isStructure);
 
@@ -203,6 +268,11 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
           polygonOffsetUnits={-1}
         />
       </mesh>
+      {centerStripeGeometry && (
+        <mesh geometry={centerStripeGeometry} position={[0, 0.03, 0]} receiveShadow>
+          <meshStandardMaterial color="#d7dbe1" roughness={0.72} metalness={0.05} />
+        </mesh>
+      )}
       {road.name && road.midPoint && (
         <Text
           position={[road.midPoint.x, road.midPoint.y + 0.05, road.midPoint.z]}
