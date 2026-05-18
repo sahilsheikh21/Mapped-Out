@@ -10,6 +10,7 @@ import { fetchTerrainData } from '../api/elevation';
 import { parseOSMResponse } from '../api/osmParser';
 import { getBBox, projectToLocal } from '../utils/geo';
 import { sampleTerrainHeight } from '../utils/terrain';
+import { getCachedWorldForBBox, setCachedWorldForBBox } from '../utils/worldCache';
 import type { OSMBuilding, OSMRoad, TerrainData, WorldData } from '../stores/worldStore';
 
 const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
@@ -137,6 +138,28 @@ export default function LoadingScreen() {
         setRefPoint(location!.lat, location!.lon);
         setTerrainData(null);
 
+        setLoadingProgress(12, 'Checking local world cache...');
+        const cachedWorld = await getCachedWorldForBBox(bbox);
+        if (cachedWorld) {
+          if (cancelled) return;
+          setLoadingProgress(35, 'Loading cached map data...');
+
+          setTerrainData(cachedWorld.terrainData);
+          const spawnFromCache = findSpawnPosition(
+            cachedWorld.worldData,
+            location!.lat,
+            location!.lon,
+            cachedWorld.terrainData
+          );
+          setWorldData(cachedWorld.worldData, spawnFromCache.pos, spawnFromCache.rot);
+
+          if (!cancelled) {
+            setLoadingProgress(100, 'Loaded from cache');
+            setTimeout(() => setPhase('playing'), 250);
+          }
+          return;
+        }
+
         setLoadingProgress(15, 'Fetching map data from OpenStreetMap...');
         const osmResponse = await fetchOSMData(
           bbox[0], bbox[1], bbox[2], bbox[3],
@@ -180,6 +203,9 @@ export default function LoadingScreen() {
         setLoadingProgress(95, 'Building 3D world...');
         const spawn = findSpawnPosition(worldData, location!.lat, location!.lon, terrainData);
         setWorldData(worldData, spawn.pos, spawn.rot);
+
+        // Persist world+terrain for faster revisits in the same area.
+        await setCachedWorldForBBox(bbox, worldData, terrainData);
 
         await new Promise((r) => setTimeout(r, 300));
 
