@@ -68,7 +68,7 @@ export const CAR_ROLLED_OVER_THRESHOLD = 0.65;   // worldUp.dot(Y) below this = 
 export const CAR_AIRTIME_RESET_THRESHOLD = 5.0;  // seconds airborne before reset
 
 // ─── Camera ───────────────────────────────────────────────────
-export const CHASE_CAM_DISTANCE = 12;
+export const CHASE_CAM_DISTANCE = 7;
 export const CHASE_CAM_HEIGHT = 6;
 export const CHASE_CAM_LERP = 0.08;
 
