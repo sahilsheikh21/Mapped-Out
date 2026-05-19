@@ -2,7 +2,8 @@
  * RoadGenerator: Renders OSM roads and builds one merged road collider mesh.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RigidBody, MeshCollider } from '@react-three/rapier';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -10,6 +11,13 @@ import { useWorldStore } from '../stores/worldStore';
 import { projectToLocal } from '../utils/geo';
 import { Text } from '@react-three/drei';
 import { sampleTerrainHeight } from '../utils/terrain';
+import {
+  ROAD_EDGE_COLOR,
+  ROAD_EDGE_WIDTH,
+  ROAD_FAR_MIN_WIDTH,
+  ROAD_FAR_WIDTH_SCALE,
+  ROAD_LOD_DISTANCE,
+} from '../utils/constants';
 
 const NON_DRIVABLE_ROADS = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps', 'bridleway']);
 
@@ -217,10 +225,32 @@ function roadColor(roadType: string, isStructure: boolean): string {
  * Single road component — visual only, no physics collider.
  */
 function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; type: string; isStructure: boolean; drivable: boolean; id: number; name: string | null; midPoint?: THREE.Vector3; rotY?: number } }) {
+  const farWidth = Math.max(road.width * ROAD_FAR_WIDTH_SCALE, ROAD_FAR_MIN_WIDTH);
+  const lodAnchor = road.midPoint ?? road.points[0];
+  const lodDistanceSq = ROAD_LOD_DISTANCE * ROAD_LOD_DISTANCE;
+  const nearGroupRef = useRef<THREE.Group | null>(null);
+  const farGroupRef = useRef<THREE.Group | null>(null);
+  const lodIsFarRef = useRef(false);
+
   const geometry = useMemo(
     () => createRoadRibbon(road.points, road.width),
     [road.points, road.width]
   );
+
+  const edgeGeometry = useMemo(() => {
+    if (!road.drivable) return null;
+    return createRoadRibbon(road.points, road.width + ROAD_EDGE_WIDTH * 2);
+  }, [road.drivable, road.points, road.width]);
+
+  const farGeometry = useMemo(
+    () => createRoadRibbon(road.points, farWidth),
+    [road.points, farWidth]
+  );
+
+  const farEdgeGeometry = useMemo(() => {
+    if (!road.drivable) return null;
+    return createRoadRibbon(road.points, farWidth + ROAD_EDGE_WIDTH * 2);
+  }, [road.drivable, road.points, farWidth]);
 
   const centerStripeGeometry = useMemo(() => {
     if (!road.drivable || road.isStructure) return null;
@@ -234,58 +264,117 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
     return createRoadRibbon(road.points, road.width + 1.1);
   }, [road.isStructure, road.points, road.width]);
 
+  const farUnderDeckGeometry = useMemo(() => {
+    if (!road.isStructure) return null;
+    return createRoadRibbon(road.points, farWidth + 1.1);
+  }, [road.isStructure, road.points, farWidth]);
+
   useEffect(() => {
     return () => {
       geometry.dispose();
+      edgeGeometry?.dispose();
+      farGeometry.dispose();
+      farEdgeGeometry?.dispose();
       centerStripeGeometry?.dispose();
       underDeckGeometry?.dispose();
+      farUnderDeckGeometry?.dispose();
     };
-  }, [geometry, centerStripeGeometry, underDeckGeometry]);
+  }, [geometry, edgeGeometry, farGeometry, farEdgeGeometry, centerStripeGeometry, underDeckGeometry, farUnderDeckGeometry]);
 
   const color = roadColor(road.type, road.isStructure);
 
+  useFrame(({ camera }) => {
+    if (!lodAnchor) return;
+    const dx = camera.position.x - lodAnchor.x;
+    const dy = camera.position.y - lodAnchor.y;
+    const dz = camera.position.z - lodAnchor.z;
+    const isFar = (dx * dx + dy * dy + dz * dz) > lodDistanceSq;
+
+    if (isFar !== lodIsFarRef.current) {
+      lodIsFarRef.current = isFar;
+      if (nearGroupRef.current) nearGroupRef.current.visible = !isFar;
+      if (farGroupRef.current) farGroupRef.current.visible = isFar;
+    }
+  });
+
   return (
     <group>
-      {road.isStructure && underDeckGeometry && (
-        <mesh geometry={underDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
+      <group ref={nearGroupRef} visible>
+        {road.isStructure && underDeckGeometry && (
+          <mesh geometry={underDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
+            <meshStandardMaterial
+              color="#373c43"
+              roughness={0.95}
+              metalness={0.03}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
+          </mesh>
+        )}
+        {edgeGeometry && (
+          <mesh geometry={edgeGeometry} position={[0, -0.01, 0]} receiveShadow>
+            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.95} metalness={0.02} />
+          </mesh>
+        )}
+        <mesh geometry={geometry} receiveShadow>
           <meshStandardMaterial
-            color="#373c43"
-            roughness={0.95}
-            metalness={0.03}
+            color={color}
+            roughness={0.9}
+            metalness={0.05}
             polygonOffset
-            polygonOffsetFactor={-2}
-            polygonOffsetUnits={-2}
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
           />
         </mesh>
-      )}
-      <mesh geometry={geometry} receiveShadow>
-        <meshStandardMaterial
-          color={color}
-          roughness={0.9}
-          metalness={0.05}
-          polygonOffset
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
-        />
-      </mesh>
-      {centerStripeGeometry && (
-        <mesh geometry={centerStripeGeometry} position={[0, 0.03, 0]} receiveShadow>
-          <meshStandardMaterial color="#d7dbe1" roughness={0.72} metalness={0.05} />
+        {centerStripeGeometry && (
+          <mesh geometry={centerStripeGeometry} position={[0, 0.03, 0]} receiveShadow>
+            <meshStandardMaterial color="#d7dbe1" roughness={0.72} metalness={0.05} />
+          </mesh>
+        )}
+        {road.name && road.midPoint && (
+          <Text
+            position={[road.midPoint.x, road.midPoint.y + 0.05, road.midPoint.z]}
+            rotation={[-Math.PI / 2, 0, road.rotY || 0]}
+            fontSize={road.width * 0.4}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
+          >
+            {road.name}
+          </Text>
+        )}
+      </group>
+      <group ref={farGroupRef} visible={false}>
+        {road.isStructure && farUnderDeckGeometry && (
+          <mesh geometry={farUnderDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
+            <meshStandardMaterial
+              color="#373c43"
+              roughness={0.95}
+              metalness={0.03}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
+          </mesh>
+        )}
+        {farEdgeGeometry && (
+          <mesh geometry={farEdgeGeometry} position={[0, -0.012, 0]} receiveShadow>
+            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.95} metalness={0.02} />
+          </mesh>
+        )}
+        <mesh geometry={farGeometry} receiveShadow>
+          <meshStandardMaterial
+            color={color}
+            roughness={0.9}
+            metalness={0.05}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
+          />
         </mesh>
-      )}
-      {road.name && road.midPoint && (
-        <Text
-          position={[road.midPoint.x, road.midPoint.y + 0.05, road.midPoint.z]}
-          rotation={[-Math.PI / 2, 0, road.rotY || 0]}
-          fontSize={road.width * 0.4}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-          characters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+[]{}|;:',.<>?/ "
-        >
-          {road.name}
-        </Text>
-      )}
+      </group>
     </group>
   );
 }

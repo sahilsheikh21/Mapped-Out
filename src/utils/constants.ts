@@ -27,6 +27,13 @@ export const ELEVATION_API_URL = '/api/elevation';
 export const TERRAIN_GRID_ROWS = 33;
 export const TERRAIN_GRID_COLS = 33;
 
+// ─── Road Rendering ─────────────────────────────────────────
+export const ROAD_LOD_DISTANCE = 120; // meters from camera
+export const ROAD_FAR_WIDTH_SCALE = 1.35;
+export const ROAD_FAR_MIN_WIDTH = 6;
+export const ROAD_EDGE_WIDTH = 0.6;
+export const ROAD_EDGE_COLOR = '#6b6f75';
+
 // ─── Vehicle Physics (Rapier DynamicRayCastVehicleController) ─
 // Ported from car-physics-main reference (CarPhysics.ts + CarWheel.ts).
 
