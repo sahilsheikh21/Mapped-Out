@@ -34,19 +34,11 @@ function isTruthyStructureTag(value: string | undefined): boolean {
   return normalized !== '' && normalized !== 'no' && normalized !== 'false' && normalized !== '0';
 }
 
-function structureProfile(t: number): number {
-  // Smoothly ramp from 0 at both ends to 1 around the center.
-  const s = Math.sin(Math.PI * t);
-  return s * s;
-}
-
 function getStructureYOffset(
   tags: Record<string, string> | undefined,
-  t: number,
-  pointCount: number
+  multiplier: number
 ): number {
   const layer = parseLayer(tags);
-  const profile = pointCount > 2 ? structureProfile(t) : 1;
   const hasBridge = isTruthyStructureTag(tags?.bridge);
   const hasTunnel = isTruthyStructureTag(tags?.tunnel);
 
@@ -54,16 +46,16 @@ function getStructureYOffset(
 
   if (hasBridge) {
     const bridgeLift = 4.0 + Math.max(0, layer - 1) * 1.5;
-    return layerLift + bridgeLift * profile;
+    return (layerLift + bridgeLift) * multiplier;
   }
 
   if (hasTunnel) {
     const tunnelDrop = 3.0 + Math.max(0, -layer - 1) * 1.0;
-    return layerLift - tunnelDrop * profile;
+    return layerLift - tunnelDrop * multiplier;
   }
 
   if (layer !== 0) {
-    return layerLift * profile;
+    return layerLift * multiplier;
   }
 
   return 0;
@@ -129,6 +121,85 @@ function createRoadRibbon(
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
+
+  return geo;
+}
+
+/**
+ * Create an extruded ribbon mesh geometry for physics colliders.
+ * Sanitizes duplicate points and gives roads 1.5m thickness to prevent clipping.
+ */
+function createSolidRoadRibbon(
+  points: THREE.Vector3[],
+  width: number,
+  thickness: number
+): THREE.BufferGeometry | null {
+  // 1. Sanitize to remove duplicate or nearly identical points
+  const cleanPoints: THREE.Vector3[] = [];
+  for (const pt of points) {
+    if (cleanPoints.length === 0 || cleanPoints[cleanPoints.length - 1].distanceToSquared(pt) > 0.001) {
+      cleanPoints.push(pt);
+    }
+  }
+
+  if (cleanPoints.length < 2) return null;
+
+  const vertices: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i < cleanPoints.length; i++) {
+    let dir = new THREE.Vector3(0, 0, 1);
+    if (i === 0) {
+      dir.subVectors(cleanPoints[1], cleanPoints[0]).normalize();
+    } else if (i === cleanPoints.length - 1) {
+      dir.subVectors(cleanPoints[i], cleanPoints[i - 1]).normalize();
+    } else {
+      const d1 = new THREE.Vector3().subVectors(cleanPoints[i], cleanPoints[i - 1]).normalize();
+      const d2 = new THREE.Vector3().subVectors(cleanPoints[i + 1], cleanPoints[i]).normalize();
+      dir.addVectors(d1, d2).normalize();
+    }
+    
+    // Fallback if direction is still somehow bad
+    if (dir.lengthSq() < 0.1) dir.set(0, 0, 1);
+
+    const up = new THREE.Vector3(0, 1, 0);
+    const perp = new THREE.Vector3().crossVectors(up, dir).normalize();
+
+    const halfW = width / 2;
+    const left = new THREE.Vector3().copy(cleanPoints[i]).addScaledVector(perp, halfW);
+    const right = new THREE.Vector3().copy(cleanPoints[i]).addScaledVector(perp, -halfW);
+
+    vertices.push(left.x, left.y, left.z); // 0 (top-left)
+    vertices.push(right.x, right.y, right.z); // 1 (top-right)
+    vertices.push(left.x, left.y - thickness, left.z); // 2 (bottom-left)
+    vertices.push(right.x, right.y - thickness, right.z); // 3 (bottom-right)
+
+    if (i < cleanPoints.length - 1) {
+      const base = i * 4;
+      const next = (i + 1) * 4;
+      
+      // Top face
+      indices.push(base, base + 1, next);
+      indices.push(base + 1, next + 1, next);
+      
+      // Bottom face
+      indices.push(base + 2, next + 2, base + 3);
+      indices.push(base + 3, next + 2, next + 3);
+      
+      // Left face
+      indices.push(base, next, base + 2);
+      indices.push(base + 2, next, next + 2);
+      
+      // Right face
+      indices.push(base + 1, base + 3, next + 1);
+      indices.push(base + 3, next + 3, next + 1);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
 
   return geo;
 }
@@ -391,18 +462,80 @@ export default function RoadGenerator() {
   const roads = useMemo(() => {
     if (!worldData) return [];
 
+    // Map all ground nodes to detect where bridges connect to flat roads
+    const groundNodes = new Set<string>();
+    for (const road of worldData.roads) {
+      if (!road.geometry) continue;
+      const hasBridge = isTruthyStructureTag(road.tags?.bridge);
+      const layer = parseLayer(road.tags);
+      const isStructure = hasBridge || layer > 0 || layer < 0;
+      
+      if (!isStructure) {
+        for (const pt of road.geometry) {
+          groundNodes.add(`${pt.lat.toFixed(7)},${pt.lon.toFixed(7)}`);
+        }
+      }
+    }
+
     return worldData.roads
       .filter((r) => r.geometry && r.geometry.length >= 2)
       .map((road) => {
-        const pointCount = road.geometry.length;
         const hasBridge = isTruthyStructureTag(road.tags?.bridge);
         const layer = parseLayer(road.tags);
-        const isStructure = hasBridge || layer > 0;
-        const points = road.geometry.map((pt, index) => {
+        const isStructure = hasBridge || layer > 0 || layer < 0;
+        
+        // 1. Project all points to local 3D space (flat Y for now)
+        const localPoints = road.geometry.map((pt) => {
           const { x, z } = projectToLocal(pt.lat, pt.lon, refLat, refLon);
-          const groundY = sampleTerrainHeight(x, z, terrainData);
-          const t = pointCount <= 1 ? 0 : index / (pointCount - 1);
-          const structureYOffset = getStructureYOffset(road.tags, t, pointCount);
+          return { x, z, lat: pt.lat, lon: pt.lon };
+        });
+
+        // 2. Calculate distances along the polyline
+        const pointDistances: number[] = [0];
+        let totalLength = 0;
+        for (let i = 1; i < localPoints.length; i++) {
+          const prev = localPoints[i - 1];
+          const curr = localPoints[i];
+          totalLength += Math.hypot(curr.x - prev.x, curr.z - prev.z);
+          pointDistances.push(totalLength);
+        }
+
+        // 3. Determine if endpoints connect to ground roads
+        const firstPt = localPoints[0];
+        const lastPt = localPoints[localPoints.length - 1];
+        const isStartGrounded = isStructure && groundNodes.has(`${firstPt.lat.toFixed(7)},${firstPt.lon.toFixed(7)}`);
+        const isEndGrounded = isStructure && groundNodes.has(`${lastPt.lat.toFixed(7)},${lastPt.lon.toFixed(7)}`);
+
+        const RAMP_LENGTH = 40; // meters to ramp up/down
+
+        // 4. Apply elevation with ramps
+        const points = localPoints.map((pt, index) => {
+          const groundY = sampleTerrainHeight(pt.x, pt.z, terrainData);
+          
+          let multiplier = isStructure ? 1 : 0;
+          
+          if (isStructure) {
+            const distFromStart = pointDistances[index];
+            const distFromEnd = totalLength - pointDistances[index];
+
+            if (isStartGrounded && isEndGrounded && totalLength < RAMP_LENGTH) {
+              // Short bridge grounded at both ends -> peak in middle
+              const t = totalLength > 0 ? distFromStart / totalLength : 0;
+              multiplier = Math.sin(t * Math.PI);
+            } else {
+              // Smoothstep ramp for grounded ends
+              if (isStartGrounded && distFromStart < RAMP_LENGTH) {
+                const x = distFromStart / RAMP_LENGTH;
+                multiplier = Math.min(multiplier, x * x * (3 - 2 * x));
+              }
+              if (isEndGrounded && distFromEnd < RAMP_LENGTH) {
+                const x = distFromEnd / RAMP_LENGTH;
+                multiplier = Math.min(multiplier, x * x * (3 - 2 * x));
+              }
+            }
+          }
+
+          const structureYOffset = getStructureYOffset(road.tags, multiplier);
           
           // Layer road heights to prevent Z-fighting between different road types
           let height = 0.02;
@@ -410,7 +543,7 @@ export default function RoadGenerator() {
           else if (road.roadType === 'primary') height = 0.04;
           else if (road.roadType === 'secondary') height = 0.03;
           
-          return new THREE.Vector3(x, groundY + structureYOffset + height, z);
+          return new THREE.Vector3(pt.x, groundY + structureYOffset + height, pt.z);
         });
 
         let midPoint: THREE.Vector3 | undefined;
@@ -449,7 +582,10 @@ export default function RoadGenerator() {
     for (const road of roads) {
       if (!road.drivable || road.points.length < 2) continue;
       const colliderWidth = Math.max(road.width * 0.95, 3);
-      const piece = createRoadRibbon(road.points, colliderWidth);
+      
+      const piece = createSolidRoadRibbon(road.points, colliderWidth, 1.5);
+      if (!piece) continue; // Skip if sanitization left it empty
+
       // Lift collider slightly above terrain so vehicle raycasts prefer road surface.
       piece.translate(0, 0.015, 0);
       colliderPieces.push(piece);
@@ -477,7 +613,7 @@ export default function RoadGenerator() {
         <RoadMesh key={`road-${road.id}`} road={road} />
       ))}
       {roadColliderGeometry && (
-        <RigidBody type="fixed" colliders={false} friction={1.2} restitution={0}>
+        <RigidBody key={roadColliderGeometry.uuid} type="fixed" colliders={false} friction={1.2} restitution={0}>
           <MeshCollider type="trimesh">
             <mesh geometry={roadColliderGeometry} visible={false}>
               <meshBasicMaterial visible={false} />
