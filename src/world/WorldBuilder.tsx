@@ -8,6 +8,7 @@ import RoadGenerator from './RoadGenerator';
 import PropPlacer from './PropPlacer';
 import StationPlacer from './StationPlacer';
 import GroundPlane from './GroundPlane';
+import ParkedCarPlacer from './ParkedCarPlacer';
 
 export default function WorldBuilder() {
   return (
@@ -19,6 +20,7 @@ export default function WorldBuilder() {
       <BuildingPlacer />
       <Suspense fallback={null}>
         <PropPlacer />
+        <ParkedCarPlacer />
         <StationPlacer />
       </Suspense>
     </group>
