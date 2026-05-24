@@ -2,7 +2,7 @@
  * LoadingScreen: Animated loading UI shown while fetching OSM data.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { useWorldStore } from '../stores/worldStore';
 import { fetchOSMData } from '../api/overpass';
@@ -122,9 +122,6 @@ export default function LoadingScreen() {
   const loadingMessage = useGameStore((s) => s.loadingMessage);
   const setPhase = useGameStore((s) => s.setPhase);
   const setLoadingProgress = useGameStore((s) => s.setLoadingProgress);
-  const resetToLocationPicker = useGameStore((s) => s.resetToLocationPicker);
-
-  const [retryKey, setRetryKey] = useState(0);
 
   const setRefPoint = useWorldStore((s) => s.setRefPoint);
   const setWorldData = useWorldStore((s) => s.setWorldData);
@@ -224,14 +221,14 @@ export default function LoadingScreen() {
       } catch (error) {
         console.error('Failed to load world:', error);
         if (!cancelled) {
-          setLoadingProgress(0, `Error: ${(error as Error).message}`);
+          setLoadingProgress(0, `Error: ${(error as Error).message}. Click to retry.`);
         }
       }
     }
 
     loadWorld();
     return () => { cancelled = true; };
-  }, [location, queryRadiusMeters, selectionMode, customBBox, retryKey]);
+  }, [location, queryRadiusMeters, selectionMode, customBBox]);
 
   return (
     <div className="loading-screen">
@@ -259,50 +256,6 @@ export default function LoadingScreen() {
         </div>
 
         <p className="loading-status">{loadingMessage || 'Preparing world...'}</p>
-
-        {loadingProgress === 0 && loadingMessage.startsWith('Error') && (
-          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-            <button
-              className="loading-retry-btn"
-              onClick={() => { setLoadingProgress(5, 'Retrying...'); setRetryKey(k => k + 1); }}
-              style={{
-                padding: '10px 24px',
-                background: 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                backdropFilter: 'blur(8px)',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.22)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
-            >
-              Retry
-            </button>
-            <button
-              className="loading-back-btn"
-              onClick={resetToLocationPicker}
-              style={{
-                padding: '10px 24px',
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: '8px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              Back to Map
-            </button>
-          </div>
-        )}
         <p className="loading-controls">WASD Drive  |  Space Brake  |  C Camera  |  T Time</p>
       </main>
     </div>

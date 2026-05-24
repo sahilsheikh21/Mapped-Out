@@ -56,8 +56,6 @@ const keys: Record<string, boolean> = {};
 const _vel = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
-const _quat = new THREE.Quaternion();
-const _fwd = new THREE.Vector3();
 
 export default function Vehicle() {
   const bodyRef = useRef<RapierRigidBody>(null);
@@ -164,12 +162,12 @@ export default function Vehicle() {
     const lft = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0;
     const rgt = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
     const manualBrake = keys['Space'] ? 1 : 0;
-    const handbrake = keys['ShiftLeft'] || keys['ShiftRight'];
 
     // Standard input mapping: +1 = forward, +1 = turn right
     const accelInput = clamp(fwd - bwd, -1, 1);
     const steerInput = clamp(rgt - lft, -1, 1);
-    const brk = manualBrake;
+    const cornerBrakeAssist = fwd === 1 && bwd === 0 && steerInput !== 0;
+    const brk = (manualBrake || cornerBrakeAssist) ? 1 : 0;
 
     // Actual physics velocity for accurate speed checks (avoids raycast bugs)
     const lv = body.linvel();
@@ -244,23 +242,17 @@ export default function Vehicle() {
     // Apply to wheels via standard Vehicle Controller
     for (let i = 0; i < NUM_WHEELS; i++) {
       vc.setWheelEngineForce(i, accelForce);
+      vc.setWheelBrake(i, breakForce);
+      // Only front wheels steer (negated to match standard convention where -angle = turn right)
       vc.setWheelSteering(i, IS_FRONT[i] ? -steerRad : 0);
-
-      // Handbrake (Shift): lock rear wheels + drop friction for drifting
-      if (handbrake && !IS_FRONT[i]) {
-        vc.setWheelBrake(i, breakForce + CAR_BRAKE_FORCE * 0.5);
-        vc.setWheelFrictionSlip(i, CAR_FRICTION_SLIP_LOW);
-      } else {
-        vc.setWheelBrake(i, breakForce);
-        vc.setWheelFrictionSlip(i, CAR_FRICTION_SLIP_HIGH);
-      }
+      vc.setWheelFrictionSlip(i, CAR_FRICTION_SLIP_HIGH);
     }
 
     vc.updateVehicle(PHYSICS_STEP, 4); // EXCLUDE_DYNAMIC
   });
 
   const telemetryCounter = useRef(0);
-  useFrame((_, delta) => {
+  useFrame(() => {
     const body = bodyRef.current;
     if (!body) return;
 
@@ -278,16 +270,18 @@ export default function Vehicle() {
       setSpeed(Math.hypot(lv.x, lv.z));
       setSteerAngle(steerRef.current * CAR_MAX_STEER_RAD);
       const fwd = (keys['KeyW'] || keys['ArrowUp']) ? 1 : 0;
+      const bwd = (keys['KeyS'] || keys['ArrowDown']) ? 1 : 0;
       const lft = (keys['KeyA'] || keys['ArrowLeft']) ? 1 : 0;
       const rgt = (keys['KeyD'] || keys['ArrowRight']) ? 1 : 0;
       const steerInput = clamp(rgt - lft, -1, 1);
-      const handbrakeActive = !!keys['ShiftLeft'] || !!keys['ShiftRight'];
+      const cornerBrakeAssist = fwd === 1 && bwd === 0 && steerInput !== 0;
+      const brakeActive = !!keys['Space'] || cornerBrakeAssist;
 
       setInput({
         throttle: fwd,
-        brake: keys['Space'] ? 1 : 0,
+        brake: brakeActive ? 1 : 0,
         steering: steerInput,
-        handbrake: handbrakeActive,
+        handbrake: brakeActive,
       });
     }
 
@@ -297,16 +291,13 @@ export default function Vehicle() {
     if (wheelsRef.current[0]) wheelsRef.current[0].rotation.y = steerAngle;
     if (wheelsRef.current[1]) wheelsRef.current[1].rotation.y = steerAngle;
     
-    // Rolling animation — use forward velocity for correct spin at any heading
-    _quat.set(rot.x, rot.y, rot.z, rot.w);
-    _fwd.set(0, 0, 1).applyQuaternion(_quat);
-    const forwardSpeed = lv.x * _fwd.x + lv.z * _fwd.z;
+    // Rolling animation
     const planarSpeed = Math.hypot(lv.x, lv.z);
     const speed01 = clamp(planarSpeed / CAR_MAX_SPEED, 0, 1);
-    const rollRate = forwardSpeed / CAR_WHEEL_RADIUS;
+    const rollSpeed = planarSpeed * 0.25;
     wheelsRef.current.forEach((wheel) => {
       if (wheel) {
-        wheel.rotation.x += rollRate * delta;
+        wheel.rotation.x += lv.z > 0 ? rollSpeed : -rollSpeed;
       }
     });
 
