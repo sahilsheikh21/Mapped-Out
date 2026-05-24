@@ -132,7 +132,8 @@ export default function HUD() {
         <span>R</span> Reset &nbsp;•&nbsp;
         <span>C</span> Camera &nbsp;•&nbsp;
         <span>T</span> Time &nbsp;•&nbsp;
-        <span>F</span> FreeCam (Bird)
+        <span>F</span> FreeCam (Bird) &nbsp;•&nbsp;
+        <span>Shift</span> Drift
       </div>
     </div>
   );
