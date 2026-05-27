@@ -375,8 +375,9 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
           <mesh geometry={underDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
             <meshStandardMaterial
               color="#373c43"
-              roughness={0.95}
-              metalness={0.03}
+              roughness={0.7}
+              metalness={0.15}
+              envMapIntensity={0.4}
               polygonOffset
               polygonOffsetFactor={-2}
               polygonOffsetUnits={-2}
@@ -385,14 +386,15 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
         )}
         {edgeGeometry && (
           <mesh geometry={edgeGeometry} position={[0, -0.01, 0]} receiveShadow>
-            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.95} metalness={0.02} />
+            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.75} metalness={0.1} envMapIntensity={0.3} />
           </mesh>
         )}
         <mesh geometry={geometry} receiveShadow>
           <meshStandardMaterial
             color={color}
-            roughness={0.9}
-            metalness={0.05}
+            roughness={0.55}
+            metalness={0.18}
+            envMapIntensity={0.6}
             polygonOffset
             polygonOffsetFactor={-1}
             polygonOffsetUnits={-1}
@@ -400,7 +402,7 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
         </mesh>
         {centerStripeGeometry && (
           <mesh geometry={centerStripeGeometry} position={[0, 0.03, 0]} receiveShadow>
-            <meshStandardMaterial color="#d7dbe1" roughness={0.72} metalness={0.05} />
+            <meshStandardMaterial color="#e0e4ea" roughness={0.45} metalness={0.15} envMapIntensity={0.5} />
           </mesh>
         )}
         {road.name && road.midPoint && (
@@ -422,8 +424,9 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
           <mesh geometry={farUnderDeckGeometry} position={[0, -0.32, 0]} receiveShadow>
             <meshStandardMaterial
               color="#373c43"
-              roughness={0.95}
-              metalness={0.03}
+              roughness={0.7}
+              metalness={0.15}
+              envMapIntensity={0.4}
               polygonOffset
               polygonOffsetFactor={-2}
               polygonOffsetUnits={-2}
@@ -432,14 +435,15 @@ function RoadMesh({ road }: { road: { points: THREE.Vector3[]; width: number; ty
         )}
         {farEdgeGeometry && (
           <mesh geometry={farEdgeGeometry} position={[0, -0.012, 0]} receiveShadow>
-            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.95} metalness={0.02} />
+            <meshStandardMaterial color={ROAD_EDGE_COLOR} roughness={0.75} metalness={0.1} envMapIntensity={0.3} />
           </mesh>
         )}
         <mesh geometry={farGeometry} receiveShadow>
           <meshStandardMaterial
             color={color}
-            roughness={0.9}
-            metalness={0.05}
+            roughness={0.6}
+            metalness={0.15}
+            envMapIntensity={0.5}
             polygonOffset
             polygonOffsetFactor={-1}
             polygonOffsetUnits={-1}

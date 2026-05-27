@@ -216,8 +216,9 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
           <meshStandardMaterial
             attach="material-0"
             color={instance.style.roofColor}
-            roughness={instance.style.roofRoughness}
-            metalness={instance.style.roofMetalness}
+            roughness={Math.max(0.3, instance.style.roofRoughness - 0.2)}
+            metalness={Math.min(0.5, instance.style.roofMetalness + 0.15)}
+            envMapIntensity={0.6}
             transparent
             opacity={0.9}
           />
@@ -227,9 +228,10 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             map={facadeTextures.albedo}
             emissive={instance.style.windowGlowColor}
             emissiveMap={facadeTextures.emissive}
-            emissiveIntensity={windowGlowIntensity}
-            roughness={instance.style.wallRoughness}
-            metalness={instance.style.wallMetalness}
+            emissiveIntensity={windowGlowIntensity * 1.5}
+            roughness={Math.max(0.25, instance.style.wallRoughness - 0.25)}
+            metalness={Math.min(0.45, instance.style.wallMetalness + 0.2)}
+            envMapIntensity={0.8}
             transparent
             opacity={0.85}
           />
@@ -237,8 +239,9 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
         <mesh geometry={roofGeometry} castShadow receiveShadow>
           <meshStandardMaterial
             color={instance.style.roofColor}
-            roughness={instance.style.roofRoughness}
-            metalness={instance.style.roofMetalness}
+            roughness={Math.max(0.3, instance.style.roofRoughness - 0.15)}
+            metalness={Math.min(0.4, instance.style.roofMetalness + 0.1)}
+            envMapIntensity={0.5}
             transparent
             opacity={0.9}
           />
@@ -251,7 +254,7 @@ const BuildingMesh = memo(function BuildingMesh({ instance }: { instance: Buildi
             receiveShadow
           >
             <boxGeometry args={detail.size} />
-            <meshStandardMaterial color={detail.color} roughness={0.85} metalness={0.12} />
+            <meshStandardMaterial color={detail.color} roughness={0.65} metalness={0.2} envMapIntensity={0.4} />
           </mesh>
         ))}
         {instance.name && (

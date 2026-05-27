@@ -77,12 +77,55 @@ export default function Vehicle() {
         child.castShadow = true;
         child.receiveShadow = true;
         
+        const mesh = child as THREE.Mesh;
         const name = child.name.toLowerCase();
+
+        // Identify wheels for animation
         if (name.includes('wheel') || name.includes('tire')) {
           if (name.includes('fl')) wheelsRef.current[0] = child;
           if (name.includes('fr')) wheelsRef.current[1] = child;
           if (name.includes('rl')) wheelsRef.current[2] = child;
           if (name.includes('rr')) wheelsRef.current[3] = child;
+        }
+
+        // Upgrade materials for high-fidelity rendering
+        const mat = mesh.material;
+        if (mat && !Array.isArray(mat) && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+          const stdMat = mat as THREE.MeshStandardMaterial;
+          
+          if (name.includes('glass') || name.includes('window') || name.includes('windshield')) {
+            // Glass — highly reflective, semi-transparent
+            stdMat.roughness = 0.05;
+            stdMat.metalness = 0.1;
+            stdMat.transparent = true;
+            stdMat.opacity = 0.35;
+            stdMat.envMapIntensity = 1.5;
+            stdMat.color.set('#88aacc');
+          } else if (name.includes('tire') || name.includes('rubber')) {
+            // Rubber tires
+            stdMat.roughness = 0.92;
+            stdMat.metalness = 0.0;
+            stdMat.envMapIntensity = 0.1;
+          } else if (name.includes('chrome') || name.includes('metal') || name.includes('rim')) {
+            // Chrome/metal trim
+            stdMat.roughness = 0.1;
+            stdMat.metalness = 0.95;
+            stdMat.envMapIntensity = 2.0;
+          } else if (name.includes('light') || name.includes('lamp') || name.includes('headlight') || name.includes('taillight')) {
+            // Lights — emissive glow
+            stdMat.roughness = 0.15;
+            stdMat.metalness = 0.0;
+            stdMat.emissive = stdMat.color.clone();
+            stdMat.emissiveIntensity = 0.4;
+            stdMat.envMapIntensity = 0.8;
+          } else {
+            // Car body paint — glossy metallic
+            stdMat.roughness = Math.min(stdMat.roughness, 0.2);
+            stdMat.metalness = Math.max(stdMat.metalness, 0.75);
+            stdMat.envMapIntensity = 1.8;
+          }
+
+          stdMat.needsUpdate = true;
         }
       }
     });

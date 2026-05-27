@@ -30,9 +30,10 @@ export default function GroundPlane() {
         <MeshCollider type="trimesh">
           <mesh geometry={terrainGeometry} receiveShadow>
             <meshStandardMaterial
-              color="#5a8a3c"
-              roughness={0.95}
-              metalness={0.0}
+              color="#4a7a32"
+              roughness={0.88}
+              metalness={0.02}
+              envMapIntensity={0.15}
             />
           </mesh>
         </MeshCollider>
@@ -55,9 +56,10 @@ export default function GroundPlane() {
       >
         <planeGeometry args={[4000, 4000]} />
         <meshStandardMaterial
-          color="#5a8a3c"
-          roughness={0.95}
-          metalness={0.0}
+          color="#4a7a32"
+          roughness={0.88}
+          metalness={0.02}
+          envMapIntensity={0.15}
         />
       </mesh>
     </>
