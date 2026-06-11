@@ -243,5 +243,4 @@ If you are reading this repo for the first time, start in this order:
 3. [`src/ui/LoadingScreen.tsx`](./src/ui/LoadingScreen.tsx)
 4. [`src/api/overpass.ts`](./src/api/overpass.ts) and [`src/api/osmParser.ts`](./src/api/osmParser.ts)
 5. [`src/world/WorldBuilder.tsx`](./src/world/WorldBuilder.tsx)
-6. [`src/vehicle/Vehicle.tsx`](./src/vehicle/Vehicle.tsx)
 
