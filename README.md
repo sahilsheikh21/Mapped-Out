@@ -236,7 +236,6 @@ npm run preview
 
 ## Best Way To Understand The Codebase
 
-If you are reading this repo for the first time, start in this order:
 
 1. [`src/App.tsx`](./src/App.tsx)
 2. [`src/ui/LocationPicker.tsx`](./src/ui/LocationPicker.tsx)
