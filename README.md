@@ -234,7 +234,6 @@ npm run build
 npm run preview
 ```
 
-## Best Way To Understand The Codebase
 
 
 1. [`src/App.tsx`](./src/App.tsx)
