@@ -239,6 +239,10 @@ html, body, #root {
   background: var(--bg-secondary);
 }
 
+.lp-map-wrapper .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(110%);
+}
+
 .lp-map-toggle {
   position: absolute;
   top: 0.75rem;
